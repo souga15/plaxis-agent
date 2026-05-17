@@ -1,4 +1,8 @@
 import os
+# Make sure env vars are loaded BEFORE importing other modules
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
 import logging
 import traceback
@@ -7,10 +11,6 @@ from fastapi.responses import HTMLResponse
 from plaxis_connection import connection_manager
 from agent import agent
 from tool_dispatcher import dispatch_tool_calls
-
-# Make sure env vars are loaded
-from dotenv import load_dotenv
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
