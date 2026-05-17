@@ -1,4 +1,5 @@
 import os
+import asyncio
 from .base import LLMProvider
 from google import genai
 
@@ -11,11 +12,13 @@ class GeminiProvider(LLMProvider):
     async def generate_response(self, system_prompt: str, user_prompt: str):
         if not self.client:
             raise ValueError("GEMINI_API_KEY not set")
-        
+
         self._wait_for_cooldown()
-        
-        # Simple implementation for completion
-        response = self.client.models.generate_content(
+
+        # Run the synchronous Gemini SDK call in a thread pool
+        # so it doesn't block the FastAPI async event loop
+        response = await asyncio.to_thread(
+            self.client.models.generate_content,
             model='gemini-2.5-flash',
             contents=[system_prompt, user_prompt],
         )

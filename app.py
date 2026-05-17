@@ -1,25 +1,48 @@
 import os
+import json
+import logging
+import traceback
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from plaxis_connection import connection_manager
 from agent import agent
-import json
-
-app = FastAPI()
+from tool_dispatcher import dispatch_tool_calls
 
 # Make sure env vars are loaded
 from dotenv import load_dotenv
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI()
+
 @app.on_event("startup")
 async def startup_event():
-    # Attempt connection on startup
-    connection_manager.connect()
+    # Attempt connection on startup (non-fatal if Plaxis isn't running yet)
+    try:
+        connection_manager.connect()
+    except Exception as e:
+        logger.warning(f"Could not connect to Plaxis on startup: {e}")
+        logger.info("You can connect later once Plaxis scripting server is enabled.")
 
 @app.get("/")
 async def get_dashboard():
     with open("dashboard/index.html", "r") as f:
         return HTMLResponse(f.read())
+
+@app.get("/api/status")
+async def get_status():
+    return {
+        "plaxis_connected": connection_manager.is_connected,
+        "input_server": connection_manager.g_i is not None,
+        "output_server": connection_manager.g_o is not None,
+    }
+
+@app.post("/api/reconnect")
+async def reconnect():
+    success = connection_manager.reconnect()
+    return {"success": success, "connected": connection_manager.is_connected}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -29,31 +52,58 @@ async def websocket_endpoint(websocket: WebSocket):
         "type": "status",
         "connected": connection_manager.is_connected
     })
-    
+
     try:
         while True:
             data = await websocket.receive_text()
             msg = json.loads(data)
-            
+
             if msg.get("type") == "prompt":
-                prompt = msg.get("text")
-                # process prompt via agent
-                response = await agent.process_request(prompt)
-                
-                # Mock execution: in reality, we would loop through response["tool_calls"]
-                # and dynamically call functions from `tools` module here.
-                tools_used = len(response.get("tool_calls", []))
-                
-                reply = response.get("message", "Processed your request.")
-                if tools_used > 0:
-                    reply += f"\n[Executed {tools_used} Plaxis actions]"
-                
+                prompt = msg.get("text", "")
+                if not prompt.strip():
+                    continue
+
+                try:
+                    # Step 1: Get LLM response with tool call plan
+                    response = await agent.process_request(prompt)
+                    tool_calls = response.get("tool_calls", [])
+                    llm_message = response.get("message", "Processed your request.")
+
+                    # Step 2: ACTUALLY EXECUTE the tool calls against Plaxis
+                    if tool_calls:
+                        results = dispatch_tool_calls(tool_calls)
+                        
+                        # Build detailed reply with execution results
+                        reply = llm_message + "\n\n📋 **Execution Results:**\n"
+                        for r in results:
+                            status_icon = "✅" if r["success"] else "❌"
+                            reply += f"\n{status_icon} `{r['tool']}`: {r['result']}"
+                    else:
+                        reply = llm_message
+
+                    await websocket.send_json({
+                        "type": "chat",
+                        "message": reply
+                    })
+
+                except Exception as e:
+                    logger.error(f"Error processing prompt: {traceback.format_exc()}")
+                    await websocket.send_json({
+                        "type": "chat",
+                        "message": f"⚠️ Error: {str(e)}"
+                    })
+
+            elif msg.get("type") == "reconnect":
+                success = connection_manager.reconnect()
                 await websocket.send_json({
-                    "type": "chat",
-                    "message": reply
+                    "type": "status",
+                    "connected": connection_manager.is_connected
                 })
+
     except WebSocketDisconnect:
-        print("Client disconnected")
+        logger.info("Client disconnected")
+    except Exception as e:
+        logger.error(f"WebSocket error: {traceback.format_exc()}")
 
 if __name__ == "__main__":
     import uvicorn
