@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plaxis AI Agent</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --accent: #00bcd4;
+            --border: #333;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            height: 100vh;
+            box-sizing: border-box;
+            gap: 20px;
+        }
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-panel {
+            flex: 2;
+        }
+        .status-panel {
+            flex: 1;
+        }
+        .chat-history {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background: #181818;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #2a2a2a;
+            color: white;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            background: var(--accent);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #0097a7;
+        }
+        .message { margin-bottom: 15px; }
+        .message.user { color: #81d4fa; }
+        .message.agent { color: #b39ddb; }
+        h2 { margin-top: 0; font-size: 1.2rem; color: var(--accent); }
+        .status-item { margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: red; }
+        .status-indicator.connected { background: #4caf50; }
+    </style>
+</head>
+<body>
+    <div class="panel chat-panel">
+        <h2>Plaxis AI Assistant</h2>
+        <div class="chat-history" id="chat"></div>
+        <div class="input-group">
+            <input type="text" id="prompt" placeholder="e.g., Create a 10m deep excavation..." onkeypress="if(event.key === 'Enter') sendPrompt()">
+            <button onclick="sendPrompt()">Send</button>
+        </div>
+    </div>
+    
+    <div class="panel status-panel">
+        <h2>System Status</h2>
+        <div class="status-item">
+            <span>Plaxis Input:</span>
+            <span id="input-status" class="status-indicator"></span>
+        </div>
+        <div class="status-item">
+            <span>Plaxis Output:</span>
+            <span id="output-status" class="status-indicator"></span>
+        </div>
+        <hr style="border-color: var(--border); margin: 20px 0;">
+        <h2>Quick Actions</h2>
+        <button onclick="sendPrompt('Start new project')" style="width: 100%; margin-bottom: 10px;">New Project</button>
+        <button onclick="sendPrompt('Run calculation')" style="width: 100%; margin-bottom: 10px;">Calculate</button>
+        <button onclick="sendPrompt('Show safety factor')" style="width: 100%;">Get Results</button>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        const chat = document.getElementById('chat');
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === "status") {
+                document.getElementById('input-status').className = 'status-indicator ' + (data.connected ? 'connected' : '');
+            } else if (data.type === "chat") {
+                appendMessage('agent', data.message);
+            }
+        };
+
+        function sendPrompt(text = null) {
+            const input = document.getElementById('prompt');
+            const msg = text || input.value;
+            if (!msg.trim()) return;
+            
+            appendMessage('user', msg);
+            ws.send(JSON.stringify({type: 'prompt', text: msg}));
+            input.value = '';
+        }
+
+        function appendMessage(sender, text) {
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            div.innerHTML = `<strong>${sender.toUpperCase()}:</strong> ${text}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+    </script>
+</body>
+</html>
