@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 def _plaxis_literal(value):
     if isinstance(value, str):
-        return f'"{value.replace("\"", "\\\"")}"'
+        return '"' + value.replace('"', '\\"') + '"'
     return str(value)
 
 # Plaxis SoilModel enum values
