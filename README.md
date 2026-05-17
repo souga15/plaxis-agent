@@ -1,53 +1,102 @@
-# 🤖 PLAXIS AI AGENT — QUICK START GUIDE
+# 🤖 PLAXIS 3D AI Automation Agent
 
-Welcome to the **PLAXIS AI Automation Agent**! This application allows you to control PLAXIS 3D by simply typing natural language commands (e.g., *"Create a borehole at the origin with 3 soil layers"* or *"Get structural forces for Plate_1"*). 
+[![Python Version](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
+[![Framework](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![WebSocket](https://img.shields.io/badge/Realtime-WebSockets-orange.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![API Layer](https://img.shields.io/badge/API-PLAXIS%20Remote%20Scripting-lightgrey.svg)](https://www.bentley.com/)
 
-**No coding or programming knowledge is required to run this!** Follow the simple steps below to get it set up on your machine.
+An advanced, interactive AI assistant designed to automate geotechnical modeling and result extraction in **PLAXIS 3D** using natural language commands. Seamlessly translates human requests into precise geotechnical operations, providing an intuitive bridge between engineers and complex simulation software.
 
 ---
 
-## 🚀 How to Run (4 Easy Steps)
+## 🗺️ System Architecture
 
-### 1️⃣ Download the Code
-1. Click the green **`Code`** button at the top of this GitHub page.
-2. Select **`Download ZIP`**.
-3. Once downloaded, extract (unzip) the folder anywhere on your computer (e.g., your Desktop).
+The agent functions via a modern event-driven loop that handles LLM tool-calling, connection monitoring, and resilient command dispatch:
 
-### 2️⃣ Run the Installer (Only need to do this ONCE)
-1. Open the extracted `plaxis-agent` folder.
-2. Double-click the file named **`setup.bat`** (it has a gears/settings icon).
-3. A black screen will pop up:
-   * **If Python is NOT on your computer:** It will automatically download and install it for you! Simply wait and approve any Windows prompts asking for permission. After it finishes, double-click `setup.bat` again.
-   * **If Python IS on your computer:** It will automatically configure all necessary libraries.
-4. Follow any on-screen prompts to configure your API Keys (Gemini/Groq) if you have them.
-5. Wait until it says `SUCCESS!` and then press any key to close the window.
+```
+┌─────────────────────────────────┐
+│     Web Dashboard (HTML5)       │ ◄─── Real-time status / Chat logs
+└────────────────┬────────────────┘
+                 │ (WebSockets)
+                 ▼
+┌─────────────────────────────────┐
+│     FastAPI WebSocket Server     │ ◄─── Manages connections, reads .env
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│      AI Agent Orchestrator      │ ◄─── Generates tool calls (Gemini/Groq)
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│     Cross-Version API Layer     │ ◄─── Safe wrappers & CLI fallback execution
+└────────────────┬────────────────┘
+                 │ (PLAXIS Remote Scripting RPC)
+                 ▼
+┌─────────────────────────────────┐
+│       PLAXIS 3D Engine          │ ◄─── Builds models, meshes, runs FEA
+└─────────────────────────────────┘
+```
 
-### 3️⃣ Turn on the PLAXIS Remote Scripting Server
-1. Open your **PLAXIS 3D** software.
-2. In the top menu, navigate to: **`Expert`** ➡️ **`Configure remote scripting server`**.
-3. Check the box to **`Enable`** or **`Start`** the server.
-4. Ensure the port is set to **`10000`** and leave the password blank.
-5. Keep PLAXIS open in the background!
+---
 
-### 4️⃣ Launch your AI Assistant!
-1. Go back to your `plaxis-agent` folder.
-2. Double-click the file named **`run.bat`**.
-3. A black helper screen will open. **Keep this open in the background!**
-4. Open your web browser (Chrome, Edge, Firefox) and go to:
+## ✨ Key Features
+
+* **Natural Language Processing**: Translates high-level requests (e.g., *"Create a 10m deep excavation in a 3-layer soil profile"*) into ordered geometric, material, and stage sequences.
+* **Soil Profile Builder**: A model-aware interactive GUI tab to define layers, depths, and soil parameters (Mohr-Coulomb, Hardening Soil, Linear Elastic) with real-time UI updates.
+* **Cross-Version Compatibility Layer**: Implements automatic, resilient CLI commands (`call_command`) and dynamic mode transitions (`gotosoil`, `gotostructures`, `gotomesh`, `gotostages`) to ensure compatibility across official, custom, and repackaged PLAXIS builds.
+* **Real-time Status Feed**: Dual-server WebSocket lights that display the connection state of the Input and Output scripting servers independently.
+* **XSS & Unicode Safe**: Pure ASCII WebSocket protocol with escaped Unicode representations and sanitization nodes to prevent mojibake and XSS vulnerability risks.
+
+---
+
+## 🛠️ Geotechnical Capabilities
+
+| Category | Supported Operations | Key Geotechnical Models & Parameters |
+| :--- | :--- | :--- |
+| **Geometry** | Boreholes, Surface boundaries, Volume extrusion, Multi-layer soil profiles | XYZ coordinates, layer boundaries, extrusion vectors |
+| **Materials** | Soil Material creation, Plate Material creation, Anchor Material, Assignment logic | Mohr-Coulomb, Hardening Soil, Soft Soil, Linear Elastic, Hoek-Brown, NGI-ADP ($\gamma_{sat}$, $\gamma_{unsat}$, $E_{ref}$, $c_{ref}$, $\phi$, $\psi$) |
+| **Structures** | Plates, Ground Anchors, Piles, Interfaces, Surface/Line Loads | Multi-coordinate points, load values ($q_x, q_y, q_z$) |
+| **Mesh** | Mesh generation, Local refinement regions, quality logging | Coarseness settings (Very Coarse to Very Fine) |
+| **Calculation** | Phase creation, Stage parameters, Active/Inactive states, calculation trigger | Phase Types (Plastic, Safety, Consolidation, Dynamic) |
+| **Results** | Displacement vectors ($U_x, U_y, U_z$), Effective Stress tensors, Plate bending moments ($M$), Axial force ($N$), Shear force ($V$), FoS ($Sum-Msf$) | Point-specific query (`getsingleresult`), Model envelope analysis (`getresults`), Excel exports (`openpyxl`) |
+
+---
+
+## 🚀 Installation & Quick Start
+
+### 1. Download & Extract
+1. Click the green **`Code`** button at the top of this repository and select **`Download ZIP`**.
+2. Unzip the folder to your local working directory.
+
+### 2. Configure Dependencies (Automatic)
+Double-click the **`setup.bat`** file located in the root folder.
+* **No Python installed?** The script automatically uses Windows `winget` to securely install Python 3.11.
+* **Python already configured?** The script installs required Python packages (`fastapi`, `google-genai`, `python-dotenv`, etc.) and walks you through an interactive wizard to configure your Gemini and Groq API keys.
+
+### 3. Open PLAXIS Remote Scripting
+1. Launch **PLAXIS 3D**.
+2. Navigate to **`Expert`** ➡️ **`Configure remote scripting server`**.
+3. Enable the scripting server on port **`10000`** (and port **`10001`** for Output queries if needed). Leave the password blank.
+
+### 4. Run the Agent
+1. Double-click **`run.bat`**. Keep the command window running in the background.
+2. Open your web browser and go to:
    👉 **`http://localhost:8501`**
-5. You will see a beautiful dark chat dashboard. Start typing your prompts and watch the AI build models and query results in PLAXIS 3D!
+3. Switch between **AI Chat** and **Soil Profile Builder** to control your model.
 
 ---
 
-## 🛠️ Troubleshooting
+## ⚠️ Troubleshooting & Advanced Configuration
 
-* **`setup.bat` fails to install Python:** 
-  Download and install Python manually from [python.org/downloads](https://www.python.org/downloads/). 
-  > ⚠️ **CRITICAL:** During manual installation, make sure to check the box that says **`Add Python to PATH`** before clicking "Install Now". Afterwards, re-run `setup.bat`.
+> [!NOTE]  
+> If the automatic setup fails to configure Python, download Python 3.11 manually from [python.org](https://www.python.org/downloads/). **Ensure you check the box that says "Add Python to PATH" during installation.**
 
-* **Connection Error: "Not connected to Plaxis Input server":**
-  Ensure that you started the remote scripting server in PLAXIS 3D (Expert menu) and that port `10000` is active.
+> [!IMPORTANT]  
+> If you are using a custom or unofficial PLAXIS build and receive an API exception, the agent will automatically attempt a CLI fallback command. Check the backend server log; it will log a `WARNING: Wrapper gotomode() unavailable, falling back to native command` indicating that the compatibility layer successfully bypassed the API restriction.
 
 ---
 
-*Enjoy automating your geotechnical workflows!* 🚀
+## 📜 License
+This project is open-source and available under the [MIT License](LICENSE).
