@@ -38,8 +38,17 @@ def generate_mesh(fineness: float = 0.5):
     fineness_value = FINENESS_MAP[category]
 
     # Set the mesh fineness before generating
-    g.gotomesh()
-    g.mesh(fineness_value)
+    try:
+        g.gotomesh()
+    except Exception as e:
+        logger.warning(f"Wrapper gotomesh() unavailable, falling back to native command: {e}")
+        connection_manager.call_command("gotomesh", server="input")
+
+    try:
+        g.mesh(fineness_value)
+    except Exception as e:
+        logger.warning(f"Wrapper mesh() unavailable, falling back to native command: {e}")
+        connection_manager.call_command(f"mesh {fineness_value}", server="input")
     
     logger.info(f"Generated mesh with fineness '{category}' (value={fineness_value})")
     return f"Generated mesh with fineness '{category}' (input={fineness})."
@@ -64,7 +73,10 @@ def get_mesh_quality():
     s, g = connection_manager.get_input()
     
     try:
-        g.gotomesh()
+        try:
+            g.gotomesh()
+        except Exception:
+            connection_manager.call_command("gotomesh", server="input")
         info = {
             "element_count": g.Mesh.NumberOfElements.value if hasattr(g.Mesh, 'NumberOfElements') else "N/A",
             "node_count": g.Mesh.NumberOfNodes.value if hasattr(g.Mesh, 'NumberOfNodes') else "N/A",

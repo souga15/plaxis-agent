@@ -10,6 +10,15 @@ def _plaxis_literal(value):
         return '"' + value.replace('"', '\\"') + '"'
     return str(value)
 
+
+def _goto_soil_mode(g):
+    try:
+        g.gotosoil()
+        return
+    except Exception as e:
+        logger.warning(f"Wrapper gotosoil() unavailable, falling back to native command: {e}")
+    connection_manager.call_command("gotosoil", server="input")
+
 # Plaxis SoilModel enum values
 SOIL_MODEL_MAP = {
     "linear elastic": 1,
@@ -51,6 +60,7 @@ def create_soil_material(name: str, model: str, params: dict):
         params (dict): Dictionary of parameters (gammaUnsat, gammaSat, E, nu, cref, phi, etc.)
     """
     s, g = connection_manager.get_input()
+    _goto_soil_mode(g)
 
     try:
         # Preferred wrapper path when available.
@@ -117,6 +127,7 @@ def assign_material(object_name: str, material_name: str):
         material_name (str): Name of the material to assign.
     """
     s, g = connection_manager.get_input()
+    _goto_soil_mode(g)
     mat = connection_manager.find_object_by_name(material_name)
 
     try:
@@ -130,7 +141,10 @@ def assign_material(object_name: str, material_name: str):
     if match:
         layer_index = int(match.group(1)) - 1
         if 0 <= layer_index < len(g.Soillayers):
-            g.setmaterial(g.Soillayers[layer_index], mat)
+            try:
+                g.Soillayers[layer_index].Soil.Material = mat
+            except Exception:
+                g.setmaterial(g.Soillayers[layer_index], mat)
             layer_name = connection_manager._safe_attr(g.Soillayers[layer_index], "Name") or f"Soillayer_{layer_index + 1}"
             return f"Assigned '{material_name}' to '{layer_name}'."
 

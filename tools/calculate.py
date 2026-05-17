@@ -9,8 +9,17 @@ def run_calculation():
     Switches to the Staged Construction mode first, then calculates.
     """
     s, g = connection_manager.get_input()
-    g.gotostages()
-    g.calculate()
+    try:
+        g.gotostages()
+    except Exception as e:
+        logger.warning(f"Wrapper gotostages() unavailable, falling back to native command: {e}")
+        connection_manager.call_command("gotostages", server="input")
+
+    try:
+        g.calculate()
+    except Exception as e:
+        logger.warning(f"Wrapper calculate() unavailable, falling back to native command: {e}")
+        connection_manager.call_command("calculate", server="input")
     return "Started calculation for all pending phases."
 
 def get_calculation_status():

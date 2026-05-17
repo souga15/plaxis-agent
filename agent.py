@@ -100,9 +100,10 @@ If no tools are needed (e.g., the user is asking a question), return:
 3. For excavation/tunneling, remember to create phases and activate/deactivate objects per stage.
 4. Always create materials BEFORE assigning them.
 5. Create boreholes and soil layers BEFORE structures.
-6. Generate mesh AFTER all geometry and structures are defined.
-7. Explain what you are doing in the "message" field.
-8. CRITICAL: Never invent or add keyword arguments that are not listed in the tool signatures above.
+6. When assigning material to borehole-defined soil, explicitly target Soillayer_1, Soillayer_2, etc. top-down.
+7. Generate mesh AFTER all geometry and structures are defined.
+8. Explain what you are doing in the "message" field.
+9. CRITICAL: Never invent or add keyword arguments that are not listed in the tool signatures above.
    For example, create_volume only accepts 'points' — do NOT add 'object_name' or any other key.
 """
 

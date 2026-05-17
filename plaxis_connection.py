@@ -132,9 +132,9 @@ class PlaxisConnection:
 
         # Search through all common Plaxis object collections
         collections = [
-            'Surfaces', 'Volumes', 'Boreholes', 'Soillayers',
+            'Surfaces', 'Volumes', 'Boreholes', 'Soillayers', 'Soils',
             'Plates', 'EmbeddedBeams', 'Anchors', 'Geogrids',
-            'SoilMat', 'PlateMat', 'AnchorMat', 'GeoMat',
+            'SoilMat', 'PlateMat', 'AnchorMat', 'GeoMat', 'Materials',
             'Phases', 'PointLoads', 'LineLoads', 'SurfaceLoads',
             'Points', 'Lines', 'Polygons',
         ]

@@ -14,6 +14,23 @@ PHASE_TYPE_MAP = {
     "fully coupled": "FullyCoupled",
 }
 
+
+def _safe_value(obj, attr_name: str, default=None):
+    try:
+        value = getattr(obj, attr_name, default)
+        return value.value if hasattr(value, "value") else value
+    except Exception:
+        return default
+
+
+def _goto_stages_mode(g):
+    try:
+        g.gotostages()
+        return
+    except Exception as e:
+        logger.warning(f"Wrapper gotostages() unavailable, falling back to native command: {e}")
+    connection_manager.call_command("gotostages", server="input")
+
 def add_phase(name: str, phase_type: str = "Plastic"):
     """
     Add a new calculation phase.
@@ -23,14 +40,35 @@ def add_phase(name: str, phase_type: str = "Plastic"):
         phase_type (str): 'Initial', 'Plastic', 'Consolidation', 'Safety', 'Dynamic'.
     """
     s, g = connection_manager.get_input()
-    
-    phase = g.phase(g.Phases[-1])  # Add after the last existing phase
-    phase.Identification = name
-    
-    # Set calculation type
+    _goto_stages_mode(g)
+
+    try:
+        phase = g.phase(g.Phases[-1])  # Add after the last existing phase
+    except Exception as e:
+        logger.warning(f"Wrapper phase() unavailable, falling back to native command: {e}")
+        previous_phase = g.Phases[-1]
+        previous_name = _safe_value(previous_phase, "Name") or _safe_value(previous_phase, "Identification") or "InitialPhase"
+        connection_manager.call_command(f"phase {previous_name}", server="input")
+        phase = g.Phases[-1]
+
+    try:
+        phase.Identification = name
+    except Exception as e:
+        logger.warning(f"Direct phase identification assignment failed, falling back to native command: {e}")
+        phase_name = _safe_value(phase, "Name") or "Phase_1"
+        connection_manager.call_command(f'set {phase_name}.Identification "{name}"', server="input")
+
     pt = phase_type.strip().lower()
     if pt in PHASE_TYPE_MAP:
-        phase.DeformCalcType = PHASE_TYPE_MAP[pt]
+        try:
+            phase.DeformCalcType = PHASE_TYPE_MAP[pt]
+        except Exception as e:
+            logger.warning(f"Direct phase type assignment failed, falling back to native command: {e}")
+            phase_name = _safe_value(phase, "Name") or "Phase_1"
+            connection_manager.call_command(
+                f'set {phase_name}.DeformCalcType "{PHASE_TYPE_MAP[pt]}"',
+                server="input",
+            )
     
     return f"Added phase '{name}' of type '{phase_type}'."
 
@@ -43,9 +81,16 @@ def activate(phase_name: str, object_name: str):
         object_name (str): Name of the object to activate.
     """
     s, g = connection_manager.get_input()
+    _goto_stages_mode(g)
     phase = connection_manager.find_object_by_name(phase_name)
     obj = connection_manager.find_object_by_name(object_name)
-    g.activate(obj, phase)
+    try:
+        g.activate(obj, phase)
+    except Exception as e:
+        logger.warning(f"Wrapper activate() unavailable, falling back to native command: {e}")
+        obj_name = _safe_value(obj, "Name") or object_name
+        phase_obj_name = _safe_value(phase, "Name") or phase_name
+        connection_manager.call_command(f"activate {obj_name} {phase_obj_name}", server="input")
     return f"Activated '{object_name}' in '{phase_name}'."
 
 def deactivate(phase_name: str, object_name: str):
@@ -57,9 +102,16 @@ def deactivate(phase_name: str, object_name: str):
         object_name (str): Name of the object to deactivate.
     """
     s, g = connection_manager.get_input()
+    _goto_stages_mode(g)
     phase = connection_manager.find_object_by_name(phase_name)
     obj = connection_manager.find_object_by_name(object_name)
-    g.deactivate(obj, phase)
+    try:
+        g.deactivate(obj, phase)
+    except Exception as e:
+        logger.warning(f"Wrapper deactivate() unavailable, falling back to native command: {e}")
+        obj_name = _safe_value(obj, "Name") or object_name
+        phase_obj_name = _safe_value(phase, "Name") or phase_name
+        connection_manager.call_command(f"deactivate {obj_name} {phase_obj_name}", server="input")
     return f"Deactivated '{object_name}' in '{phase_name}'."
 
 def set_water_level(phase_name: str, level: float):

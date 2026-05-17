@@ -4,27 +4,57 @@ from plaxis_connection import connection_manager
 logger = logging.getLogger(__name__)
 
 
+def _goto_soil_mode(g):
+    try:
+        g.gotosoil()
+        return
+    except Exception as e:
+        logger.warning(f"Wrapper gotosoil() unavailable, falling back to native command: {e}")
+    connection_manager.call_command("gotosoil", server="input")
+
+
+def _goto_structures_mode(g):
+    try:
+        g.gotostructures()
+        return
+    except Exception as e:
+        logger.warning(f"Wrapper gotostructures() unavailable, falling back to native command: {e}")
+    connection_manager.call_command("gotostructures", server="input")
+
+
 def _create_borehole_object(g, x: float, y: float):
     """
     Create a borehole using the Python wrapper when available, otherwise
     fall back to the native PLAXIS command line syntax.
     """
+    _goto_soil_mode(g)
+
+    try:
+        return g.borehole(x, y, 0.0)
+    except Exception as e_xyz:
+        logger.warning(f"Wrapper borehole(x, y, z) unavailable, trying 2D-style signature: {e_xyz}")
+
     try:
         return g.borehole(x, y)
     except Exception as e_xy:
         logger.warning(f"Wrapper borehole(x, y) unavailable, trying command fallback: {e_xy}")
 
     try:
-        connection_manager.call_command(f"borehole {x} {y}", server="input")
-    except Exception as e_cmd_xy:
-        logger.warning(f"Native command 'borehole {x} {y}' failed, trying single-coordinate form: {e_cmd_xy}")
-        connection_manager.call_command(f"borehole {x}", server="input")
+        connection_manager.call_command(f"borehole {x} {y} 0", server="input")
+    except Exception as e_cmd_xyz:
+        logger.warning(f"Native command 'borehole {x} {y} 0' failed, trying 2-argument form: {e_cmd_xyz}")
+        try:
+            connection_manager.call_command(f"borehole {x} {y}", server="input")
+        except Exception as e_cmd_xy:
+            logger.warning(f"Native command 'borehole {x} {y}' failed, trying single-coordinate form: {e_cmd_xy}")
+            connection_manager.call_command(f"borehole {x}", server="input")
 
     # After a native command call, re-read the latest borehole from the model.
     return g.Boreholes[-1]
 
 
 def _add_soil_layer(g, thickness_hint: float = 0.0):
+    _goto_soil_mode(g)
     try:
         return g.soillayer(thickness_hint)
     except Exception as e:
@@ -60,7 +90,7 @@ def create_borehole(x: float, y: float, layers: list):
             for zone in soil_layer.Zones:
                 try:
                     zone_borehole = zone.Borehole.value if hasattr(zone.Borehole, "value") else zone.Borehole
-                    if zone_borehole == bh:
+                    if zone_borehole == bh or len(soil_layer.Zones) == 1:
                         if hasattr(zone.Top, "set"):
                             zone.Top.set(layer_def.get("top", 0))
                         else:
@@ -86,6 +116,7 @@ def create_surface(points: list):
                        nested list [[x1,y1,z1], [x2,y2,z2], ...].
     """
     s, g = connection_manager.get_input()
+    _goto_structures_mode(g)
 
     # Flatten nested list if needed: [[0,0,0],[10,0,0]] -> [0,0,0,10,0,0]
     if points and isinstance(points[0], (list, tuple)):
@@ -94,7 +125,12 @@ def create_surface(points: list):
             flat.extend(p)
         points = flat
 
-    surface = g.surface(*points)
+    try:
+        surface = g.surface(*points)
+    except Exception as e:
+        logger.warning(f"Wrapper surface() unavailable, falling back to native command: {e}")
+        connection_manager.call_command("surface " + " ".join(str(p) for p in points), server="input")
+        surface = g.Surfaces[-1]
     return f"Created surface with {len(points) // 3} points: {surface.Name.value}"
 
 def create_volume(points: list, **kwargs):
@@ -115,6 +151,7 @@ def create_volume(points: list, **kwargs):
         logger.warning(f"create_volume received unexpected kwargs (ignored): {list(kwargs.keys())}")
 
     s, g = connection_manager.get_input()
+    _goto_structures_mode(g)
 
     if points and isinstance(points[0], (list, tuple)):
         flat = []
@@ -122,7 +159,12 @@ def create_volume(points: list, **kwargs):
             flat.extend(p)
         points = flat
 
-    surface = g.surface(*points)
+    try:
+        surface = g.surface(*points)
+    except Exception as e:
+        logger.warning(f"Wrapper surface() unavailable, falling back to native command: {e}")
+        connection_manager.call_command("surface " + " ".join(str(p) for p in points), server="input")
+        surface = g.Surfaces[-1]
     return f"Created volume boundary surface from {len(points) // 3} points: {surface.Name.value}"
 
 def extrude(object_name: str, direction: list, length: float):

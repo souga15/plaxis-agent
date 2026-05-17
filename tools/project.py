@@ -14,22 +14,33 @@ def new_project():
     s, g = connection_manager.get_input()
 
     # Primary: command on the global scripting object
+    g_new_error = None
     try:
         g.new()
         logger.info("New project created via g.new()")
         return "Created new Plaxis 3D project."
     except Exception as e1:
+        g_new_error = str(e1)
         logger.warning(f"g.new() failed ({e1}), trying s.new()...")
 
     # Fallback: command on the server wrapper
+    s_new_error = None
     try:
         s.new()
         logger.info("New project created via s.new()")
         return "Created new Plaxis 3D project."
     except Exception as e2:
+        s_new_error = str(e2)
+        logger.warning(f"s.new() failed ({e2}), trying native command 'new'...")
+
+    try:
+        connection_manager.call_command("new", server="input")
+        logger.info("New project created via native command 'new'")
+        return "Created new Plaxis 3D project."
+    except Exception as e3:
         msg = (
             f"Could not create new project automatically "
-            f"(g.new: {e1} / s.new: {e2}). "
+            f"(g.new: {g_new_error} / s.new: {s_new_error} / cmd new: {e3}). "
             "Please create or open a project manually in Plaxis 3D first, "
             "then re-issue your command."
         )
