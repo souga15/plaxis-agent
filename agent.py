@@ -23,7 +23,7 @@ GEOMETRY:
     layers = [{"top": 0, "bottom": -5}, {"top": -5, "bottom": -15}]
 - create_surface(points: list)
     points = [x1,y1,z1, x2,y2,z2, ...] or [[x1,y1,z1], [x2,y2,z2], ...]
-- create_volume(points: list)
+- create_volume(points: list)  — ONLY takes 'points', no other arguments
 - extrude(object_name: str, direction: list, length: float)
     direction = [0, 0, -1] (unit vector), length in meters
 
@@ -70,7 +70,7 @@ RESULTS:
 - export_results_to_excel(phase_name: str, output_path: str)
 
 PROJECT:
-- new_project()
+- new_project()  — requires Plaxis 3D to already be running with scripting server enabled
 - open_project(path: str)
 - save_project(path: str)
 - close_project()
@@ -102,6 +102,8 @@ If no tools are needed (e.g., the user is asking a question), return:
 5. Create boreholes and soil layers BEFORE structures.
 6. Generate mesh AFTER all geometry and structures are defined.
 7. Explain what you are doing in the "message" field.
+8. CRITICAL: Never invent or add keyword arguments that are not listed in the tool signatures above.
+   For example, create_volume only accepts 'points' — do NOT add 'object_name' or any other key.
 """
 
     async def process_request(self, user_prompt: str):

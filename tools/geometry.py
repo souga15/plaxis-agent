@@ -62,13 +62,23 @@ def create_surface(points: list):
     surface = g.surface(*points)
     return f"Created surface with {len(points) // 3} points: {surface.Name.value}"
 
-def create_volume(points: list):
+def create_volume(points: list, **kwargs):
     """
-    Create a soil volume from a list of surface points.
-    In Plaxis 3D, volumes are usually created automatically from
-    intersecting surfaces. This creates a surface that Plaxis will
-    use to define volume boundaries.
+    Create a soil volume boundary surface.
+
+    In Plaxis 3D, volumes are bounded by surfaces.  This call creates the
+    bounding surface; Plaxis generates the volume automatically when surfaces
+    enclose a region.
+
+    Args:
+        points (list): Flat list [x1,y1,z1, x2,y2,z2, ...] or nested
+                       [[x1,y1,z1], [x2,y2,z2], ...].
+        **kwargs: Absorbed silently (guards against LLM hallucinating extra
+                  parameters such as 'object_name').
     """
+    if kwargs:
+        logger.warning(f"create_volume received unexpected kwargs (ignored): {list(kwargs.keys())}")
+
     s, g = connection_manager.get_input()
 
     if points and isinstance(points[0], (list, tuple)):
@@ -78,7 +88,7 @@ def create_volume(points: list):
         points = flat
 
     surface = g.surface(*points)
-    return f"Created surface (volume boundary) from {len(points) // 3} points."
+    return f"Created volume boundary surface from {len(points) // 3} points: {surface.Name.value}"
 
 def extrude(object_name: str, direction: list, length: float):
     """
