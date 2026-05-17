@@ -191,3 +191,17 @@ def extrude(object_name: str, direction: list, length: float):
     dz = direction[2] * length
     extruded = g.extrude(obj, dx, dy, dz)
     return f"Extruded {object_name} by {length} in direction {direction}."
+
+def find_object_by_coordinates(x: float, y: float, z: float, collection: str = "Volumes"):
+    """
+    Find a Plaxis object by its physical coordinates using the BoundingBox property.
+
+    Args:
+        x (float): Target X coordinate.
+        y (float): Target Y coordinate.
+        z (float): Target Z coordinate.
+        collection (str): The Plaxis collection to search (e.g., 'Volumes', 'Surfaces', 'Points').
+    """
+    obj = connection_manager.find_object_by_coordinates(x, y, z, collection)
+    obj_name = connection_manager._safe_attr(obj, "Name") or "Unknown"
+    return f"Found object at ({x}, {y}, {z}) in {collection}: {obj_name}"

@@ -1,5 +1,16 @@
 import json
 import logging
+from pydantic import BaseModel, Field, ValidationError
+from typing import List, Dict, Any
+
+class ToolCall(BaseModel):
+    name: str = Field(..., description="Name of the tool to execute")
+    args: Dict[str, Any] = Field(default_factory=dict, description="Arguments for the tool")
+
+class AgentResponse(BaseModel):
+    tool_calls: List[ToolCall] = Field(default_factory=list)
+    message: str = Field(..., description="Message explaining what actions were taken")
+
 from providers.gemini import GeminiProvider
 from providers.groq import GroqProvider
 
@@ -42,7 +53,12 @@ STRUCTURES:
 - create_pile(point: list, depth: float)
 - create_interface(object_name: str)
 - create_load(load_type: str, points: list, value: list)
-    load_type: "surface" or "line", value: [qx, qy, qz] in kN/mÂ²
+    load_type: "surface" or "line", value: [qx, qy, qz] in kN/m²
+
+SPATIAL:
+- find_object_by_coordinates(x: float, y: float, z: float, collection: str)
+    collection: "Volumes", "Surfaces", "Lines", "Points", "Plates", etc.
+    Returns the exact Plaxis object name located at the coordinates.
 
 MESH:
 - generate_mesh(fineness: float)  â€” 0.0=very coarse, 0.5=medium, 1.0=very fine
@@ -134,14 +150,12 @@ If no tools are needed (e.g., the user is asking a question), return:
             else:
                 json_str = response.strip()
 
-            parsed = json.loads(json_str)
+            parsed_data = json.loads(json_str)
 
-            if "tool_calls" not in parsed:
-                parsed["tool_calls"] = []
-            if "message" not in parsed:
-                parsed["message"] = "Processing complete."
+            # Validate the parsed data using Pydantic
+            agent_response = AgentResponse(**parsed_data)
+            return agent_response.model_dump()
 
-            return parsed
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
             logger.debug(f"Raw LLM response: {response}")
@@ -149,6 +163,11 @@ If no tools are needed (e.g., the user is asking a question), return:
                 "tool_calls": [],
                 "message": f"I understood your request but had a formatting issue. Here's my raw response:\n\n{response}",
             }
-
+        except ValidationError as e:
+            logger.error(f"Pydantic validation failed: {e}")
+            return {
+                "tool_calls": [],
+                "message": f"I generated a response but it failed safety/format validation. Details:\n{e}",
+            }
 
 agent = PlaxisAgent()

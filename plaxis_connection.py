@@ -188,4 +188,39 @@ class PlaxisConnection:
             f"Check the exact name in the Plaxis Model Explorer."
         )
 
+    def find_object_by_coordinates(self, x: float, y: float, z: float, collection_name: str = "Volumes", tolerance: float = 0.01, server: str = "input"):
+        """
+        Find a Plaxis object by its physical coordinates using the BoundingBox property.
+        
+        Args:
+            x, y, z: Target coordinates.
+            collection_name: Plaxis collection to search (e.g., 'Volumes', 'Surfaces', 'Points').
+            tolerance: Spatial tolerance for bounding box match.
+        """
+        if server == "output":
+            _, g = self.get_output()
+        else:
+            _, g = self.get_input()
+            
+        collection = getattr(g, collection_name, None)
+        if collection is None:
+            raise ValueError(f"Collection '{collection_name}' not found.")
+            
+        for obj in collection:
+            try:
+                bbox = obj.BoundingBox
+                if bbox is None:
+                    continue
+                # BoundingBox returns (xMin, yMin, zMin, xMax, yMax, zMax)
+                x_min, y_min, z_min, x_max, y_max, z_max = bbox
+                
+                if (x_min - tolerance <= x <= x_max + tolerance and
+                    y_min - tolerance <= y <= y_max + tolerance and
+                    z_min - tolerance <= z <= z_max + tolerance):
+                    return obj
+            except Exception:
+                continue
+                
+        raise ValueError(f"No object in {collection_name} found matching coordinates ({x}, {y}, {z})")
+
 connection_manager = PlaxisConnection()

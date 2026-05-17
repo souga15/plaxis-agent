@@ -6,3 +6,4 @@ httpx
 google-genai
 python-dotenv
 openpyxl
+pydantic

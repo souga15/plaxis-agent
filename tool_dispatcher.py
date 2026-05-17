@@ -16,6 +16,7 @@ TOOL_REGISTRY = {
     "create_surface": geometry.create_surface,
     "create_volume": geometry.create_volume,
     "extrude": geometry.extrude,
+    "find_object_by_coordinates": geometry.find_object_by_coordinates,
 
     # Materials
     "create_soil_material": materials.create_soil_material,
