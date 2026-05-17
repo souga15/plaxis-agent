@@ -35,6 +35,10 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 
 echo.
+:: Run interactive API Key Configuration
+python configure.py
+
+echo.
 echo ====================================================
 echo   SUCCESS! All dependencies installed successfully.
 echo ====================================================
