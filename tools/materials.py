@@ -1,7 +1,14 @@
 import logging
+import re
 from plaxis_connection import connection_manager
 
 logger = logging.getLogger(__name__)
+
+
+def _plaxis_literal(value):
+    if isinstance(value, str):
+        return f'"{value.replace("\"", "\\\"")}"'
+    return str(value)
 
 # Plaxis SoilModel enum values
 SOIL_MODEL_MAP = {
@@ -45,16 +52,22 @@ def create_soil_material(name: str, model: str, params: dict):
     """
     s, g = connection_manager.get_input()
 
-    # Plaxis API: soilmat() takes no args, then use setproperties()
-    mat = g.soilmat()
-    
-    # Build the properties list: alternating key, value pairs
-    props = ["MaterialName", name, "SoilModel", _resolve_soil_model(model)]
-    for key, val in params.items():
-        props.append(key)
-        props.append(val)
-    
-    mat.setproperties(*props)
+    try:
+        # Preferred wrapper path when available.
+        mat = g.soilmat()
+        props = ["Identification", name, "SoilModel", _resolve_soil_model(model)]
+        for key, val in params.items():
+            props.append(key)
+            props.append(val)
+        mat.setproperties(*props)
+    except Exception as e:
+        logger.warning(f"Wrapper soilmat() unavailable, falling back to native command: {e}")
+        tokens = ["soilmat", _plaxis_literal("Identification"), _plaxis_literal(name), _plaxis_literal("SoilModel"), _plaxis_literal(model)]
+        for key, val in params.items():
+            tokens.append(_plaxis_literal(key))
+            tokens.append(_plaxis_literal(val))
+        connection_manager.call_command(" ".join(tokens), server="input")
+
     return f"Created soil material '{name}' with model '{model}'."
 
 def create_plate_material(name: str, params: dict):
@@ -104,7 +117,23 @@ def assign_material(object_name: str, material_name: str):
         material_name (str): Name of the material to assign.
     """
     s, g = connection_manager.get_input()
-    obj = connection_manager.find_object_by_name(object_name)
     mat = connection_manager.find_object_by_name(material_name)
+
+    try:
+        obj = connection_manager.find_object_by_name(object_name)
+        g.setmaterial(obj, mat)
+        return f"Assigned '{material_name}' to '{object_name}'."
+    except ValueError:
+        pass
+
+    match = re.fullmatch(r"(?:soil|soillayer)[_\s]*(\d+)", object_name.strip(), flags=re.IGNORECASE)
+    if match:
+        layer_index = int(match.group(1)) - 1
+        if 0 <= layer_index < len(g.Soillayers):
+            g.setmaterial(g.Soillayers[layer_index], mat)
+            layer_name = connection_manager._safe_attr(g.Soillayers[layer_index], "Name") or f"Soillayer_{layer_index + 1}"
+            return f"Assigned '{material_name}' to '{layer_name}'."
+
+    obj = connection_manager.find_object_by_name(object_name)
     g.setmaterial(obj, mat)
     return f"Assigned '{material_name}' to '{object_name}'."

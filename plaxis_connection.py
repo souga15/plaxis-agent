@@ -83,6 +83,20 @@ class PlaxisConnection:
             )
         return self.s_o, self.g_o
 
+    def call_command(self, command: str, server: str = "input"):
+        """
+        Execute a native PLAXIS command string through the scripting server.
+
+        This is a compatibility fallback for cases where a Python wrapper
+        attribute/command is unavailable in a given PLAXIS version but the
+        native command line command still exists.
+        """
+        if server == "output":
+            s, _ = self.get_output()
+        else:
+            s, _ = self.get_input()
+        return s.call_and_handle_command(command)
+
     @staticmethod
     def _safe_attr(obj, attr_name: str):
         """Safely read a Plaxis proxy attribute, returning None on failure."""

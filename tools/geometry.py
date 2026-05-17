@@ -3,6 +3,34 @@ from plaxis_connection import connection_manager
 
 logger = logging.getLogger(__name__)
 
+
+def _create_borehole_object(g, x: float, y: float):
+    """
+    Create a borehole using the Python wrapper when available, otherwise
+    fall back to the native PLAXIS command line syntax.
+    """
+    try:
+        return g.borehole(x, y)
+    except Exception as e_xy:
+        logger.warning(f"Wrapper borehole(x, y) unavailable, trying command fallback: {e_xy}")
+
+    try:
+        connection_manager.call_command(f"borehole {x} {y}", server="input")
+    except Exception as e_cmd_xy:
+        logger.warning(f"Native command 'borehole {x} {y}' failed, trying single-coordinate form: {e_cmd_xy}")
+        connection_manager.call_command(f"borehole {x}", server="input")
+
+    # After a native command call, re-read the latest borehole from the model.
+    return g.Boreholes[-1]
+
+
+def _add_soil_layer(g, thickness_hint: float = 0.0):
+    try:
+        return g.soillayer(thickness_hint)
+    except Exception as e:
+        logger.warning(f"Wrapper soillayer() unavailable, falling back to native command: {e}")
+        return connection_manager.call_command(f"soillayer {thickness_hint}", server="input")
+
 def create_borehole(x: float, y: float, layers: list):
     """
     Create a borehole with soil layer definitions.
@@ -15,14 +43,14 @@ def create_borehole(x: float, y: float, layers: list):
                        Example: [{"top": 0, "bottom": -5}, {"top": -5, "bottom": -15}]
     """
     s, g = connection_manager.get_input()
-    bh = g.borehole(x, y)
+    bh = _create_borehole_object(g, x, y)
 
     # Soil layers in Plaxis 3D are GLOBAL, not per-borehole.
     # The borehole defines the depth/position of each global layer at that (x,y).
     # First, ensure enough global soil layers exist:
     existing_layers = len(g.Soillayers)
     for i in range(existing_layers, len(layers)):
-        g.soillayer(0)  # Add a new global soil layer with 0 thickness (will be set below)
+        _add_soil_layer(g, 0)  # Add a new global soil layer with 0 thickness (will be set below)
 
     # Set the top/bottom for each layer at this borehole
     for i, layer_def in enumerate(layers):
@@ -31,9 +59,16 @@ def create_borehole(x: float, y: float, layers: list):
             # Access the borehole-specific zone for this layer
             for zone in soil_layer.Zones:
                 try:
-                    if zone.Borehole.value == bh:
-                        zone.Top = layer_def.get("top", 0)
-                        zone.Bottom = layer_def.get("bottom", -5)
+                    zone_borehole = zone.Borehole.value if hasattr(zone.Borehole, "value") else zone.Borehole
+                    if zone_borehole == bh:
+                        if hasattr(zone.Top, "set"):
+                            zone.Top.set(layer_def.get("top", 0))
+                        else:
+                            zone.Top = layer_def.get("top", 0)
+                        if hasattr(zone.Bottom, "set"):
+                            zone.Bottom.set(layer_def.get("bottom", -5))
+                        else:
+                            zone.Bottom = layer_def.get("bottom", -5)
                         break
                 except Exception:
                     pass
