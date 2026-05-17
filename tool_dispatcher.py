@@ -4,6 +4,7 @@ and executes them with the provided arguments against the live Plaxis instance.
 """
 
 import logging
+from plaxis_connection import connection_manager
 from tools import geometry, materials, structures, mesh, phases, calculate, results, project
 
 logger = logging.getLogger(__name__)
@@ -97,10 +98,12 @@ def dispatch_tool_calls(tool_calls: list) -> list:
             })
         except Exception as e:
             logger.error(f"Tool '{tool_name}' failed: {e}")
+            compatibility_message = connection_manager.classify_runtime_issue(e)
             execution_results.append({
                 "tool": tool_name,
                 "success": False,
-                "result": f"Error: {str(e)}"
+                "result": compatibility_message or f"Error: {str(e)}",
+                "compatibility_issue": compatibility_message is not None,
             })
 
     return execution_results

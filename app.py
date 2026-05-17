@@ -86,9 +86,18 @@ async def websocket_endpoint(websocket: WebSocket):
                     # Step 2: ACTUALLY EXECUTE the tool calls against Plaxis
                     if tool_calls:
                         results = dispatch_tool_calls(tool_calls)
+                        compatibility_issue_found = any(r.get("compatibility_issue") for r in results)
                         
                         # Build detailed reply with execution results
                         reply = llm_message + "\n\n\U0001f4cb **Execution Results:**\n"
+                        if compatibility_issue_found:
+                            reply = (
+                                "\u26a0\ufe0f **PLAXIS scripting compatibility warning:** "
+                                "the connected PLAXIS build does not appear to expose the commands "
+                                "or attributes this agent expects. This usually points to a PLAXIS "
+                                "version/API mismatch or an unsupported installation.\n\n"
+                                + reply
+                            )
                         for r in results:
                             status_icon = "\u2705" if r["success"] else "\u274c"
                             reply += f"\n{status_icon} `{r['tool']}`: {r['result']}"

@@ -2,6 +2,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+COMPATIBILITY_ERROR_HINT = (
+    "This usually means the connected PLAXIS scripting API does not match what this "
+    "agent expects. Verify you are using a supported PLAXIS installation with Remote "
+    "Scripting enabled and a matching official 'plxscripting' package."
+)
+
 class PlaxisConnection:
     _instance = None
 
@@ -96,6 +103,30 @@ class PlaxisConnection:
         else:
             s, _ = self.get_input()
         return s.call_and_handle_command(command)
+
+    @staticmethod
+    def classify_runtime_issue(error) -> str | None:
+        """
+        Return a user-facing compatibility explanation for common PLAXIS
+        scripting API mismatches, or None when the error looks unrelated.
+        """
+        message = str(error)
+        lowered = message.lower()
+
+        compatibility_markers = [
+            "requested attribute",
+            "is not present",
+            "is not recognized as a global command",
+            "incorrect or unspecified action",
+            "call_and_handle_command",
+        ]
+        if any(marker in lowered for marker in compatibility_markers):
+            return (
+                f"Incompatible or unsupported PLAXIS scripting command/interface: {message}. "
+                f"{COMPATIBILITY_ERROR_HINT}"
+            )
+
+        return None
 
     @staticmethod
     def _safe_attr(obj, attr_name: str):
