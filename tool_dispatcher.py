@@ -95,7 +95,8 @@ def dispatch_tool_calls(tool_calls: list) -> list:
             execution_results.append({
                 "tool": tool_name,
                 "success": True,
-                "result": str(result)
+                "result": str(result),
+                "raw_result": result
             })
         except Exception as e:
             logger.error(f"Tool '{tool_name}' failed: {e}")
