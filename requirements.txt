@@ -7,3 +7,5 @@ google-genai
 python-dotenv
 openpyxl
 pydantic
+pytest
+pytest-asyncio

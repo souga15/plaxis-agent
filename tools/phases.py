@@ -128,8 +128,13 @@ def set_water_level(phase_name: str, level: float):
     s, g = connection_manager.get_input()
     phase = connection_manager.find_object_by_name(phase_name)
     
-    # Set water conditions for this phase
-    phase.WaterLevel = level
+    try:
+        phase.WaterLevel = level
+    except Exception as e:
+        logger.warning(f"Wrapper WaterLevel unavailable, falling back to native command: {e}")
+        phase_obj_name = _safe_value(phase, "Name") or phase_name
+        connection_manager.call_command(f"set {phase_obj_name}.WaterLevel {level}", server="input")
+        
     return f"Set water level to {level}m in '{phase_name}'."
 
 def list_phases():

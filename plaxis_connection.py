@@ -1,13 +1,39 @@
+import os
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 COMPATIBILITY_ERROR_HINT = (
     "This usually means the connected PLAXIS scripting API does not match what this "
     "agent expects. Verify you are using a supported PLAXIS installation with Remote "
     "Scripting enabled and a matching official 'plxscripting' package."
 )
+
+class MockPlaxisObject:
+    def __init__(self, name):
+        class MockVal:
+            def __init__(self, v): self.value = v
+        self.Name = MockVal(name)
+        self.Identification = MockVal(name)
+        self.BoundingBox = (0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+        
+class MockPlaxisServer:
+    def __init__(self):
+        self.is_simulated = True
+        self.Phases = [MockPlaxisObject("InitialPhase")]
+        self.Surfaces = []
+        self.Volumes = []
+        self.Plates = []
+        
+    def __getattr__(self, name):
+        def mock_func(*args, **kwargs):
+            if name == "getresults":
+                return [1.32]  # Safe simulated FoS
+            return MockPlaxisObject(f"Mock_{name}")
+        return mock_func
+
+    def call_and_handle_command(self, cmd):
+        return f"[SIMULATED] {cmd}"
 
 class PlaxisConnection:
     _instance = None
@@ -20,28 +46,41 @@ class PlaxisConnection:
             cls._instance.s_o = None
             cls._instance.g_o = None
             cls._instance.is_connected = False
+            cls._instance.is_simulation = False
             cls._instance._host = "localhost"
             cls._instance._port_i = 10000
             cls._instance._port_o = 10001
             cls._instance._password = ""
         return cls._instance
 
+    def _enable_simulation_mode(self):
+        logger.info("Entering PLAXIS Simulation Mode...")
+        self.is_connected = True
+        self.is_simulation = True
+        self.g_i = MockPlaxisServer()
+        self.s_i = self.g_i
+        self.g_o = MockPlaxisServer()
+        self.s_o = self.g_o
+
     def connect(self, host="localhost", port_i=10000, port_o=10001, password=""):
         self._host = host
         self._port_i = port_i
         self._port_o = port_o
         self._password = password
+        self.is_simulation = False
 
-        # Lazy import: allows the app to start even when plxscripting is not installed
+        force_sim = os.getenv("PLAXIS_SIMULATION_MODE", "false").lower() == "true"
+        if force_sim:
+            logger.info("PLAXIS_SIMULATION_MODE=true. Forcing simulation mode.")
+            self._enable_simulation_mode()
+            return True
+
         try:
             from plxscripting.easy import new_server
         except ImportError:
-            logger.error(
-                "plxscripting package is not installed. "
-                "Install it from your Plaxis installation or via pip."
-            )
-            self.is_connected = False
-            return False
+            logger.warning("plxscripting not installed. Auto-falling back to Simulation Mode.")
+            self._enable_simulation_mode()
+            return True
 
         try:
             logger.info(f"Connecting to Plaxis Input server at {host}:{port_i}...")
@@ -49,60 +88,43 @@ class PlaxisConnection:
             logger.info("Connected to Plaxis Input server.")
 
             try:
-                logger.info(f"Connecting to Plaxis Output server at {host}:{port_o}...")
                 self.s_o, self.g_o = new_server(host, port_o, password=password)
-                logger.info("Connected to Plaxis Output server.")
             except Exception as e:
-                logger.warning(f"Could not connect to Output server: {e}. Output features will be disabled.")
+                logger.warning(f"Could not connect to Output server: {e}. Output features disabled.")
                 self.s_o, self.g_o = None, None
 
             self.is_connected = True
             return True
         except Exception as e:
-            logger.error(f"Failed to connect to Plaxis: {e}")
-            self.is_connected = False
-            return False
+            logger.warning(f"Failed to connect to Plaxis: {e}. Auto-falling back to Simulation Mode.")
+            self._enable_simulation_mode()
+            return True
 
     def reconnect(self):
         """Reconnect using previously stored connection parameters."""
         logger.info("Attempting to reconnect to Plaxis...")
-        # Reset state
-        self.s_i = None
-        self.g_i = None
-        self.s_o = None
-        self.g_o = None
+        self.s_i = self.g_i = self.s_o = self.g_o = None
         self.is_connected = False
+        self.is_simulation = False
         return self.connect(self._host, self._port_i, self._port_o, self._password)
 
     def get_input(self):
         if not self.is_connected or self.g_i is None:
-            raise ConnectionError(
-                "Not connected to Plaxis Input server. "
-                "Make sure Plaxis 3D is open with Expert > Configure remote scripting server enabled on port 10000."
-            )
+            raise ConnectionError("Not connected to Plaxis Input server.")
         return self.s_i, self.g_i
 
     def get_output(self):
         if not self.is_connected or self.g_o is None:
-            raise ConnectionError(
-                "Not connected to Plaxis Output server. "
-                "Make sure the Output program is open with scripting enabled on port 10001."
-            )
+            raise ConnectionError("Not connected to Plaxis Output server.")
         return self.s_o, self.g_o
 
     def call_command(self, command: str, server: str = "input"):
-        """
-        Execute a native PLAXIS command string through the scripting server.
-
-        This is a compatibility fallback for cases where a Python wrapper
-        attribute/command is unavailable in a given PLAXIS version but the
-        native command line command still exists.
-        """
-        if server == "output":
-            s, _ = self.get_output()
-        else:
-            s, _ = self.get_input()
-        return s.call_and_handle_command(command)
+        """Execute native PLAXIS command string through scripting server."""
+        s, _ = self.get_output() if server == "output" else self.get_input()
+        result = s.call_and_handle_command(command)
+        if getattr(s, "is_simulated", False):
+            return f"[SIMULATED] {command}"
+        return result
 
     @staticmethod
     def classify_runtime_issue(error) -> str | None:

@@ -237,7 +237,13 @@ async def _call_llm(gemini, groq, system_prompt: str, prompt: str) -> dict:
         response = await gemini.generate_response(system_prompt, prompt)
     except Exception as e:
         logger.warning(f"Gemini failed ({e}), falling back to Groq...")
-        response = await groq.generate_response(system_prompt, prompt)
+        try:
+            response = await groq.generate_response(system_prompt, prompt)
+        except Exception as e2:
+            return {
+                "tool_calls": [],
+                "message": "⚠️ **Configuration Required**: Both AI providers failed. Please verify that your `GEMINI_API_KEY` or `GROQ_API_KEY` is set in the `.env` file."
+            }
 
     try:
         if "```json" in response:
