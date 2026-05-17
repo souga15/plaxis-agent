@@ -4,145 +4,711 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plaxis AI Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #121212;
-            --panel-bg: #1e1e1e;
-            --text-main: #e0e0e0;
-            --text-muted: #a0a0a0;
-            --accent: #00bcd4;
-            --border: #333;
+            --bg: #0d0f14;
+            --panel: #161920;
+            --panel2: #1c1f28;
+            --border: #2a2d3a;
+            --accent: #00c9b1;
+            --accent2: #6c63ff;
+            --danger: #ff5c5c;
+            --text: #e2e8f0;
+            --muted: #7a8399;
+            --input-bg: #1a1d26;
+            --user-color: #7dd3fc;
+            --agent-color: #c4b5fd;
+            --success: #4ade80;
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            background: var(--bg);
+            color: var(--text);
             font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 20px;
             display: flex;
             height: 100vh;
-            box-sizing: border-box;
-            gap: 20px;
+            overflow: hidden;
         }
-        .panel {
-            background: var(--panel-bg);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            padding: 20px;
+
+        /* ── LEFT SIDEBAR ── */
+        .sidebar {
+            width: 260px;
+            min-width: 260px;
+            background: var(--panel);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
+            padding: 20px 16px;
+            gap: 20px;
         }
-        .chat-panel {
-            flex: 2;
+        .logo {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        .status-panel {
+        .logo span { color: var(--text); font-weight: 400; }
+        .section-title {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            margin-bottom: 8px;
+        }
+        .dot {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: var(--danger);
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+        .dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
+
+        .quick-btn {
+            width: 100%;
+            padding: 9px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--panel2);
+            color: var(--text);
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: left;
+            transition: border-color 0.2s, background 0.2s;
+            margin-bottom: 6px;
+        }
+        .quick-btn:hover { border-color: var(--accent); background: #1f2535; }
+
+        /* ── MAIN AREA ── */
+        .main {
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── TOPBAR ── */
+        .topbar {
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .tab {
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            color: var(--muted);
+            transition: all 0.2s;
+        }
+        .tab.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+        .tab:not(.active):hover { border-color: var(--border); color: var(--text); }
+
+        /* ── CONTENT VIEWS ── */
+        .view { display: none; flex: 1; overflow: hidden; }
+        .view.active { display: flex; }
+
+        /* ── CHAT VIEW ── */
+        #view-chat {
+            flex-direction: column;
+            padding: 0;
         }
         .chat-history {
-            flex-grow: 1;
+            flex: 1;
             overflow-y: auto;
-            border: 1px solid var(--border);
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            background: #181818;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
-        .input-group {
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.88rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #1a3a5c, #1e2a4a);
+            border: 1px solid #2a4a7a;
+            color: var(--user-color);
+        }
+        .message.agent {
+            align-self: flex-start;
+            background: var(--panel2);
+            border: 1px solid var(--border);
+            color: var(--agent-color);
+        }
+        .message-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            opacity: 0.7;
+        }
+        .chat-input-bar {
+            padding: 16px 24px;
+            background: var(--panel);
+            border-top: 1px solid var(--border);
             display: flex;
             gap: 10px;
         }
-        input[type="text"] {
-            flex-grow: 1;
-            padding: 12px;
-            border-radius: 8px;
+        .chat-input-bar input {
+            flex: 1;
+            background: var(--input-bg);
             border: 1px solid var(--border);
-            background: #2a2a2a;
-            color: white;
-            font-size: 16px;
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
         }
-        button {
+        .chat-input-bar input:focus { border-color: var(--accent); }
+        .send-btn {
             padding: 12px 24px;
-            border-radius: 8px;
+            border-radius: 10px;
             border: none;
             background: var(--accent);
-            color: white;
-            font-weight: bold;
+            color: #000;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .send-btn:hover { opacity: 0.85; }
+        .send-btn:active { transform: scale(0.97); }
+
+        /* ── SOIL BUILDER VIEW ── */
+        #view-soil {
+            flex-direction: column;
+            padding: 28px;
+            overflow-y: auto;
+            gap: 24px;
+        }
+        .builder-header h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        .builder-header p {
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 22px;
+        }
+        .card-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group.full { grid-column: 1 / -1; }
+        label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        select, input[type="text"], input[type="number"] {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 9px 12px;
+            color: var(--text);
+            font-size: 0.88rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+            width: 100%;
+        }
+        select:focus, input:focus { border-color: var(--accent); }
+
+        /* model-specific parameter sections */
+        .param-section { display: none; }
+        .param-section.visible { display: contents; }
+
+        .layer-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+        .layer-row {
+            background: var(--panel2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.83rem;
+            flex-wrap: wrap;
+        }
+        .layer-row span { color: var(--accent); font-weight: 600; }
+        .remove-btn {
+            margin-left: auto;
+            background: transparent;
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.75rem;
             cursor: pointer;
             transition: background 0.2s;
         }
-        button:hover {
-            background: #0097a7;
+        .remove-btn:hover { background: rgba(255,92,92,0.15); }
+
+        .action-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 4px;
+            flex-wrap: wrap;
         }
-        .message { margin-bottom: 15px; }
-        .message.user { color: #81d4fa; }
-        .message.agent { color: #b39ddb; }
-        h2 { margin-top: 0; font-size: 1.2rem; color: var(--accent); }
-        .status-item { margin-bottom: 10px; display: flex; justify-content: space-between; }
-        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: red; }
-        .status-indicator.connected { background: #4caf50; }
+        .btn-outline {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-outline:hover { background: rgba(0,201,177,0.1); }
+        .btn-primary {
+            padding: 10px 26px;
+            border-radius: 10px;
+            border: none;
+            background: var(--accent);
+            color: #000;
+            font-weight: 700;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-primary:hover { opacity: 0.85; }
+        .btn-secondary {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid var(--accent2);
+            background: transparent;
+            color: var(--accent2);
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-secondary:hover { background: rgba(108,99,255,0.1); }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+
+        /* scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     </style>
 </head>
 <body>
-    <div class="panel chat-panel">
-        <h2>Plaxis AI Assistant</h2>
+
+<!-- ── SIDEBAR ── -->
+<div class="sidebar">
+    <div class="logo">⬡ <span>Plaxis</span> AI</div>
+
+    <div>
+        <div class="section-title">Server Status</div>
+        <div class="status-row">
+            <span>Input (port 10000)</span>
+            <div class="dot" id="input-dot"></div>
+        </div>
+        <div class="status-row">
+            <span>Output (port 10001)</span>
+            <div class="dot" id="output-dot"></div>
+        </div>
+    </div>
+
+    <div>
+        <div class="section-title">Quick Actions</div>
+        <button class="quick-btn" onclick="quickSend('Start new project')">🗂 New Project</button>
+        <button class="quick-btn" onclick="quickSend('List all phases')">📋 List Phases</button>
+        <button class="quick-btn" onclick="quickSend('Run calculation')">⚡ Run Calculation</button>
+        <button class="quick-btn" onclick="quickSend('Get safety factor for Safety_Phase')">🛡 Safety Factor</button>
+        <button class="quick-btn" onclick="quickSend('Show mesh quality')">🔲 Mesh Quality</button>
+    </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+    <!-- TOPBAR / TABS -->
+    <div class="topbar">
+        <div class="tab active" id="tab-chat" onclick="switchTab('chat')">💬 AI Chat</div>
+        <div class="tab" id="tab-soil" onclick="switchTab('soil')">🪨 Soil Profile Builder</div>
+    </div>
+
+    <!-- CHAT VIEW -->
+    <div class="view active" id="view-chat">
         <div class="chat-history" id="chat"></div>
-        <div class="input-group">
-            <input type="text" id="prompt" placeholder="e.g., Create a 10m deep excavation..." onkeypress="if(event.key === 'Enter') sendPrompt()">
-            <button onclick="sendPrompt()">Send</button>
+        <div class="chat-input-bar">
+            <input type="text" id="prompt" placeholder="e.g., Create a 10 m deep excavation in clay…"
+                   onkeypress="if(event.key==='Enter') sendPrompt()">
+            <button class="send-btn" onclick="sendPrompt()">Send →</button>
         </div>
     </div>
-    
-    <div class="panel status-panel">
-        <h2>System Status</h2>
-        <div class="status-item">
-            <span>Plaxis Input:</span>
-            <span id="input-status" class="status-indicator"></span>
+
+    <!-- SOIL BUILDER VIEW -->
+    <div class="view" id="view-soil">
+
+        <div class="builder-header">
+            <h1>Soil Profile Builder</h1>
+            <p>Define your soil layers and parameters below, then send them directly to Plaxis — no typing required.</p>
         </div>
-        <div class="status-item">
-            <span>Plaxis Output:</span>
-            <span id="output-status" class="status-indicator"></span>
+
+        <!-- Material Definition Card -->
+        <div class="card">
+            <div class="card-title">🪨 Soil Material Properties</div>
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label>Material Name</label>
+                    <input type="text" id="mat-name" value="Clay_Layer">
+                </div>
+
+                <div class="form-group">
+                    <label>Constitutive Model</label>
+                    <select id="mat-model" onchange="updateModelFields()">
+                        <option value="Mohr-Coulomb">Mohr-Coulomb</option>
+                        <option value="Hardening Soil">Hardening Soil</option>
+                        <option value="Soft Soil">Soft Soil</option>
+                        <option value="Linear Elastic">Linear Elastic</option>
+                        <option value="Hoek-Brown">Hoek-Brown</option>
+                        <option value="NGI-ADP">NGI-ADP</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>γ Unsat (kN/m³)</label>
+                    <input type="number" id="p-gammaUnsat" value="16">
+                </div>
+                <div class="form-group">
+                    <label>γ Sat (kN/m³)</label>
+                    <input type="number" id="p-gammaSat" value="19">
+                </div>
+
+                <!-- Mohr-Coulomb params -->
+                <div class="param-section visible" id="ps-mc">
+                    <div class="form-group">
+                        <label>E ref (kPa)</label>
+                        <input type="number" id="p-Eref" value="20000">
+                    </div>
+                    <div class="form-group">
+                        <label>Poisson ν</label>
+                        <input type="number" id="p-nu" value="0.3" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Cohesion c ref (kPa)</label>
+                        <input type="number" id="p-cref" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label>Friction φ (°)</label>
+                        <input type="number" id="p-phi" value="25">
+                    </div>
+                    <div class="form-group">
+                        <label>Dilatancy ψ (°)</label>
+                        <input type="number" id="p-psi" value="0">
+                    </div>
+                </div>
+
+                <!-- Hardening Soil extra params -->
+                <div class="param-section" id="ps-hs">
+                    <div class="form-group">
+                        <label>E50 ref (kPa)</label>
+                        <input type="number" id="p-E50ref" value="30000">
+                    </div>
+                    <div class="form-group">
+                        <label>Eoed ref (kPa)</label>
+                        <input type="number" id="p-Eoedref" value="30000">
+                    </div>
+                    <div class="form-group">
+                        <label>Eur ref (kPa)</label>
+                        <input type="number" id="p-Eurref" value="90000">
+                    </div>
+                    <div class="form-group">
+                        <label>Power m</label>
+                        <input type="number" id="p-m" value="0.5" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Cohesion c ref (kPa)</label>
+                        <input type="number" id="p-cref-hs" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Friction φ (°)</label>
+                        <input type="number" id="p-phi-hs" value="30">
+                    </div>
+                </div>
+
+                <!-- Linear Elastic params -->
+                <div class="param-section" id="ps-le">
+                    <div class="form-group">
+                        <label>E (kPa)</label>
+                        <input type="number" id="p-E-le" value="50000">
+                    </div>
+                    <div class="form-group">
+                        <label>Poisson ν</label>
+                        <input type="number" id="p-nu-le" value="0.2" step="0.01">
+                    </div>
+                </div>
+
+            </div>
         </div>
-        <hr style="border-color: var(--border); margin: 20px 0;">
-        <h2>Quick Actions</h2>
-        <button onclick="sendPrompt('Start new project')" style="width: 100%; margin-bottom: 10px;">New Project</button>
-        <button onclick="sendPrompt('Run calculation')" style="width: 100%; margin-bottom: 10px;">Calculate</button>
-        <button onclick="sendPrompt('Show safety factor')" style="width: 100%;">Get Results</button>
-    </div>
 
-    <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws`);
-        const chat = document.getElementById('chat');
-        
-        ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            if (data.type === "status") {
-                document.getElementById('input-status').className = 'status-indicator ' + (data.input_connected ? 'connected' : '');
-                document.getElementById('output-status').className = 'status-indicator ' + (data.output_connected ? 'connected' : '');
-            } else if (data.type === "chat") {
-                appendMessage('agent', data.message);
-            }
-        };
+        <!-- Borehole / Layer Card -->
+        <div class="card">
+            <div class="card-title">📐 Borehole & Depth</div>
+            <div class="form-grid three">
+                <div class="form-group">
+                    <label>Borehole X (m)</label>
+                    <input type="number" id="bh-x" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Borehole Y (m)</label>
+                    <input type="number" id="bh-y" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Layer count</label>
+                    <input type="number" id="bh-layers" value="2" min="1" max="10" onchange="syncLayerCount()">
+                </div>
+            </div>
+            <div class="hint" style="margin-top:14px; margin-bottom:10px;">Layer depths (negative = below ground):</div>
+            <div class="layer-list" id="layer-list"></div>
+            <div class="action-row">
+                <button class="btn-outline" onclick="addLayer()">+ Add Layer</button>
+            </div>
+        </div>
 
-        function sendPrompt(text = null) {
-            const input = document.getElementById('prompt');
-            const msg = text || input.value;
-            if (!msg.trim()) return;
-            
-            appendMessage('user', msg);
-            ws.send(JSON.stringify({type: 'prompt', text: msg}));
-            input.value = '';
-        }
+        <!-- Send Actions -->
+        <div class="card">
+            <div class="card-title">🚀 Send to Plaxis</div>
+            <p class="hint" style="margin-bottom:16px;">
+                This will: (1) create the soil material, (2) create the borehole with layers, and (3) assign the material. The commands will appear in the Chat tab so you can see what was sent.
+            </p>
+            <div class="action-row">
+                <button class="btn-primary" onclick="sendToPlaxis()">⚡ Create Material &amp; Borehole</button>
+                <button class="btn-secondary" onclick="previewPrompt()">👁 Preview Prompt</button>
+            </div>
+        </div>
 
-        function appendMessage(sender, text) {
-            const div = document.createElement('div');
-            div.className = `message ${sender}`;
-            const label = document.createElement('strong');
-            label.textContent = `${sender.toUpperCase()}: `;
-            div.appendChild(label);
-            div.appendChild(document.createTextNode(text));
-            chat.appendChild(div);
-            chat.scrollTop = chat.scrollHeight;
-        }
-    </script>
+    </div><!-- /view-soil -->
+</div><!-- /main -->
+
+<script>
+// ── WebSocket ──────────────────────────────────────────
+const ws = new WebSocket(`ws://${window.location.host}/ws`);
+const chat = document.getElementById('chat');
+
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    if (data.type === 'status') {
+        document.getElementById('input-dot').className  = 'dot ' + (data.input_connected  ? 'on' : '');
+        document.getElementById('output-dot').className = 'dot ' + (data.output_connected ? 'on' : '');
+    } else if (data.type === 'chat') {
+        appendMessage('agent', data.message);
+    }
+};
+
+// ── Tabs ──────────────────────────────────────────────
+function switchTab(name) {
+    ['chat','soil'].forEach(t => {
+        document.getElementById('tab-' + t).classList.toggle('active', t === name);
+        document.getElementById('view-' + t).classList.toggle('active', t === name);
+    });
+}
+
+// ── Chat ─────────────────────────────────────────────
+function sendPrompt(text) {
+    const input = document.getElementById('prompt');
+    const msg = text !== undefined ? text : input.value.trim();
+    if (!msg) return;
+    appendMessage('user', msg);
+    ws.send(JSON.stringify({type: 'prompt', text: msg}));
+    input.value = '';
+    if (text !== undefined) switchTab('chat');
+}
+
+function quickSend(text) {
+    sendPrompt(text);
+}
+
+function appendMessage(sender, text) {
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.alignItems = sender === 'user' ? 'flex-end' : 'flex-start';
+
+    const label = document.createElement('div');
+    label.className = 'message-label';
+    label.textContent = sender === 'user' ? 'You' : 'Plaxis AI';
+    label.style.color = sender === 'user' ? '#7dd3fc' : '#c4b5fd';
+    label.style.marginBottom = '3px';
+    label.style.fontSize = '0.7rem';
+    label.style.paddingLeft = '4px';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'message ' + sender;
+    bubble.appendChild(document.createTextNode(text));
+
+    wrap.appendChild(label);
+    wrap.appendChild(bubble);
+    chat.appendChild(wrap);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+// ── Model Field Switching ─────────────────────────────
+const modelSections = { mc: ['Mohr-Coulomb'], hs: ['Hardening Soil'], le: ['Linear Elastic'] };
+function updateModelFields() {
+    const model = document.getElementById('mat-model').value;
+    Object.entries(modelSections).forEach(([key, models]) => {
+        const el = document.getElementById('ps-' + key);
+        if (el) el.classList.toggle('visible', models.includes(model));
+    });
+}
+
+// ── Layer Management ─────────────────────────────────
+let layers = [{ top: 0, bottom: -5 }, { top: -5, bottom: -15 }];
+
+function renderLayers() {
+    const list = document.getElementById('layer-list');
+    list.innerHTML = '';
+    layers.forEach((l, i) => {
+        const row = document.createElement('div');
+        row.className = 'layer-row';
+        row.innerHTML = `
+            <span>Layer ${i + 1}</span>
+            <label style="color:var(--muted);font-size:0.78rem;">Top&nbsp;(m)</label>
+            <input type="number" style="width:80px;padding:6px 8px;" value="${l.top}"
+                   onchange="layers[${i}].top = +this.value">
+            <label style="color:var(--muted);font-size:0.78rem;">Bottom&nbsp;(m)</label>
+            <input type="number" style="width:80px;padding:6px 8px;" value="${l.bottom}"
+                   onchange="layers[${i}].bottom = +this.value">
+            <button class="remove-btn" onclick="removeLayer(${i})">✕</button>
+        `;
+        list.appendChild(row);
+    });
+    document.getElementById('bh-layers').value = layers.length;
+}
+
+function addLayer() {
+    const last = layers[layers.length - 1];
+    layers.push({ top: last.bottom, bottom: last.bottom - 5 });
+    renderLayers();
+}
+
+function removeLayer(i) {
+    if (layers.length === 1) return;
+    layers.splice(i, 1);
+    renderLayers();
+}
+
+function syncLayerCount() {
+    const n = +document.getElementById('bh-layers').value;
+    while (layers.length < n) addLayer();
+    while (layers.length > n) layers.pop();
+    renderLayers();
+}
+
+// ── Build the natural-language prompt ─────────────────
+function buildPrompt() {
+    const model  = document.getElementById('mat-model').value;
+    const name   = document.getElementById('mat-name').value.trim() || 'Soil_Layer';
+    const gUnsat = document.getElementById('p-gammaUnsat').value;
+    const gSat   = document.getElementById('p-gammaSat').value;
+    const bhX    = document.getElementById('bh-x').value;
+    const bhY    = document.getElementById('bh-y').value;
+
+    let params = `gammaUnsat=${gUnsat}, gammaSat=${gSat}`;
+
+    if (model === 'Mohr-Coulomb') {
+        params += `, Eref=${document.getElementById('p-Eref').value}` +
+                  `, nu=${document.getElementById('p-nu').value}` +
+                  `, cref=${document.getElementById('p-cref').value}` +
+                  `, phi=${document.getElementById('p-phi').value}` +
+                  `, psi=${document.getElementById('p-psi').value}`;
+    } else if (model === 'Hardening Soil') {
+        params += `, E50ref=${document.getElementById('p-E50ref').value}` +
+                  `, Eoedref=${document.getElementById('p-Eoedref').value}` +
+                  `, Eurref=${document.getElementById('p-Eurref').value}` +
+                  `, m=${document.getElementById('p-m').value}` +
+                  `, cref=${document.getElementById('p-cref-hs').value}` +
+                  `, phi=${document.getElementById('p-phi-hs').value}`;
+    } else if (model === 'Linear Elastic') {
+        params += `, E=${document.getElementById('p-E-le').value}` +
+                  `, nu=${document.getElementById('p-nu-le').value}`;
+    }
+
+    const layerStr = layers.map(l => `top ${l.top} m to bottom ${l.bottom} m`).join(', ');
+
+    return `Create a soil material named "${name}" using the ${model} model with parameters: ${params}. ` +
+           `Then create a borehole at (${bhX}, ${bhY}) with ${layers.length} layers: ${layerStr}. ` +
+           `Assign the material "${name}" to each layer.`;
+}
+
+function sendToPlaxis() {
+    const prompt = buildPrompt();
+    sendPrompt(prompt);   // switches to chat tab and sends via WebSocket
+}
+
+function previewPrompt() {
+    const prompt = buildPrompt();
+    switchTab('chat');
+    appendMessage('user', '[PREVIEW — not sent]\n' + prompt);
+}
+
+// ── Init ─────────────────────────────────────────────
+renderLayers();
+updateModelFields();
+</script>
 </body>
 </html>
