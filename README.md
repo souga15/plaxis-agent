@@ -1,15 +1,15 @@
-# 🤖 PLAXIS 3D AI Automation Agent
+# PLAXIS 3D AI Automation Agent
 
 [![Python Version](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Framework](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 [![WebSocket](https://img.shields.io/badge/Realtime-WebSockets-orange.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
 [![API Layer](https://img.shields.io/badge/API-PLAXIS%20Remote%20Scripting-lightgrey.svg)](https://www.bentley.com/)
 
-An advanced, interactive AI assistant designed to automate geotechnical modeling and result extraction in **PLAXIS 3D** using natural language commands. Seamlessly translates human requests into precise geotechnical operations, providing an intuitive bridge between engineers and complex simulation software.
+An advanced, interactive AI assistant designed to automate geotechnical modeling and result extraction in PLAXIS 3D using natural language commands. Seamlessly translates human requests into precise geotechnical operations, providing an intuitive bridge between engineers and complex simulation software.
 
 ---
 
-## 🗺️ System Architecture
+## System Architecture
 
 The agent functions via a modern event-driven loop that handles LLM tool-calling, connection monitoring, and resilient command dispatch:
 
@@ -41,9 +41,9 @@ The agent functions via a modern event-driven loop that handles LLM tool-calling
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-* **Natural Language Processing**: Translates high-level requests (e.g., *"Create a 10m deep excavation in a 3-layer soil profile"*) into ordered geometric, material, and stage sequences.
+* **Natural Language Processing**: Translates high-level requests (e.g., "Create a 10m deep excavation in a 3-layer soil profile") into ordered geometric, material, and stage sequences.
 * **Soil Profile Builder**: A model-aware interactive GUI tab to define layers, depths, and soil parameters (Mohr-Coulomb, Hardening Soil, Linear Elastic) with real-time UI updates.
 * **Cross-Version Compatibility Layer**: Implements automatic, resilient CLI commands (`call_command`) and dynamic mode transitions (`gotosoil`, `gotostructures`, `gotomesh`, `gotostages`) to ensure compatibility across official, custom, and repackaged PLAXIS builds.
 * **Real-time Status Feed**: Dual-server WebSocket lights that display the connection state of the Input and Output scripting servers independently.
@@ -51,7 +51,7 @@ The agent functions via a modern event-driven loop that handles LLM tool-calling
 
 ---
 
-## 🛠️ Geotechnical Capabilities
+## Geotechnical Capabilities
 
 | Category | Supported Operations | Key Geotechnical Models & Parameters |
 | :--- | :--- | :--- |
@@ -64,10 +64,10 @@ The agent functions via a modern event-driven loop that handles LLM tool-calling
 
 ---
 
-## 🚀 Installation & Quick Start
+## Installation & Quick Start
 
 ### 1. Download & Extract
-1. Click the green **`Code`** button at the top of this repository and select **`Download ZIP`**.
+1. Click the green **Code** button at the top of this repository and select **Download ZIP**.
 2. Unzip the folder to your local working directory.
 
 ### 2. Configure Dependencies (Automatic)
@@ -77,18 +77,18 @@ Double-click the **`setup.bat`** file located in the root folder.
 
 ### 3. Open PLAXIS Remote Scripting
 1. Launch **PLAXIS 3D**.
-2. Navigate to **`Expert`** ➡️ **`Configure remote scripting server`**.
-3. Enable the scripting server on port **`10000`** (and port **`10001`** for Output queries if needed). Leave the password blank.
+2. Navigate to **Expert** -> **Configure remote scripting server**.
+3. Enable the scripting server on port **10000** (and port **10001** for Output queries if needed). Leave the password blank.
 
 ### 4. Run the Agent
 1. Double-click **`run.bat`**. Keep the command window running in the background.
-2. Open your web browser and go to:
-   👉 **`http://localhost:8501`**
+2. Open your web browser and navigate to:
+   **`http://localhost:8501`**
 3. Switch between **AI Chat** and **Soil Profile Builder** to control your model.
 
 ---
 
-## ⚠️ Troubleshooting & Advanced Configuration
+## Troubleshooting & Advanced Configuration
 
 > [!NOTE]  
 > If the automatic setup fails to configure Python, download Python 3.11 manually from [python.org](https://www.python.org/downloads/). **Ensure you check the box that says "Add Python to PATH" during installation.**
@@ -98,5 +98,5 @@ Double-click the **`setup.bat`** file located in the root folder.
 
 ---
 
-## 📜 License
+## License
 This project is open-source and available under the [MIT License](LICENSE).
