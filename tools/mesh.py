@@ -42,7 +42,10 @@ def generate_mesh(fineness: float = 0.5):
         g.gotomesh()
     except Exception as e:
         logger.warning(f"Wrapper gotomesh() unavailable, falling back to native command: {e}")
-        connection_manager.call_command("gotomesh", server="input")
+        try:
+            connection_manager.call_command("gotomesh", server="input")
+        except Exception as e2:
+            logger.warning(f"Native command gotomesh is unavailable in this PLAXIS build: {e2}")
 
     try:
         g.mesh(fineness_value)
@@ -76,7 +79,10 @@ def get_mesh_quality():
         try:
             g.gotomesh()
         except Exception:
-            connection_manager.call_command("gotomesh", server="input")
+            try:
+                connection_manager.call_command("gotomesh", server="input")
+            except Exception:
+                pass
         info = {
             "element_count": g.Mesh.NumberOfElements.value if hasattr(g.Mesh, 'NumberOfElements') else "N/A",
             "node_count": g.Mesh.NumberOfNodes.value if hasattr(g.Mesh, 'NumberOfNodes') else "N/A",

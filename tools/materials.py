@@ -17,7 +17,10 @@ def _goto_soil_mode(g):
         return
     except Exception as e:
         logger.warning(f"Wrapper gotosoil() unavailable, falling back to native command: {e}")
-    connection_manager.call_command("gotosoil", server="input")
+    try:
+        connection_manager.call_command("gotosoil", server="input")
+    except Exception as e:
+        logger.warning(f"Native command gotosoil is unavailable in this PLAXIS build: {e}")
 
 # Plaxis SoilModel enum values
 SOIL_MODEL_MAP = {

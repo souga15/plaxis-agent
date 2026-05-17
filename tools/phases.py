@@ -29,7 +29,10 @@ def _goto_stages_mode(g):
         return
     except Exception as e:
         logger.warning(f"Wrapper gotostages() unavailable, falling back to native command: {e}")
-    connection_manager.call_command("gotostages", server="input")
+    try:
+        connection_manager.call_command("gotostages", server="input")
+    except Exception as e:
+        logger.warning(f"Native command gotostages is unavailable in this PLAXIS build: {e}")
 
 def add_phase(name: str, phase_type: str = "Plastic"):
     """

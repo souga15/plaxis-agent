@@ -10,7 +10,10 @@ def _goto_soil_mode(g):
         return
     except Exception as e:
         logger.warning(f"Wrapper gotosoil() unavailable, falling back to native command: {e}")
-    connection_manager.call_command("gotosoil", server="input")
+    try:
+        connection_manager.call_command("gotosoil", server="input")
+    except Exception as e:
+        logger.warning(f"Native command gotosoil is unavailable in this PLAXIS build: {e}")
 
 
 def _goto_structures_mode(g):
@@ -19,7 +22,10 @@ def _goto_structures_mode(g):
         return
     except Exception as e:
         logger.warning(f"Wrapper gotostructures() unavailable, falling back to native command: {e}")
-    connection_manager.call_command("gotostructures", server="input")
+    try:
+        connection_manager.call_command("gotostructures", server="input")
+    except Exception as e:
+        logger.warning(f"Native command gotostructures is unavailable in this PLAXIS build: {e}")
 
 
 def _create_borehole_object(g, x: float, y: float):
