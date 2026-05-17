@@ -17,6 +17,17 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+
+def build_status_payload():
+    input_connected = connection_manager.g_i is not None
+    output_connected = connection_manager.g_o is not None
+    return {
+        "type": "status",
+        "connected": input_connected,
+        "input_connected": input_connected,
+        "output_connected": output_connected,
+    }
+
 @app.on_event("startup")
 async def startup_event():
     # Attempt connection on startup (non-fatal if Plaxis isn't running yet)
@@ -48,10 +59,7 @@ async def reconnect():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     # Send initial status
-    await websocket.send_json({
-        "type": "status",
-        "connected": connection_manager.is_connected
-    })
+    await websocket.send_json(build_status_payload())
 
     try:
         while True:
@@ -74,9 +82,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         results = dispatch_tool_calls(tool_calls)
                         
                         # Build detailed reply with execution results
-                        reply = llm_message + "\n\n📋 **Execution Results:**\n"
+                        reply = llm_message + "\n\n\U0001f4cb **Execution Results:**\n"
                         for r in results:
-                            status_icon = "✅" if r["success"] else "❌"
+                            status_icon = "\u2705" if r["success"] else "\u274c"
                             reply += f"\n{status_icon} `{r['tool']}`: {r['result']}"
                     else:
                         reply = llm_message
@@ -90,15 +98,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     logger.error(f"Error processing prompt: {traceback.format_exc()}")
                     await websocket.send_json({
                         "type": "chat",
-                        "message": f"⚠️ Error: {str(e)}"
+                        "message": f"\u26a0\ufe0f Error: {str(e)}"
                     })
 
             elif msg.get("type") == "reconnect":
                 success = connection_manager.reconnect()
-                await websocket.send_json({
-                    "type": "status",
-                    "connected": connection_manager.is_connected
-                })
+                await websocket.send_json(build_status_payload())
 
     except WebSocketDisconnect:
         logger.info("Client disconnected")

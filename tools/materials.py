@@ -20,11 +20,14 @@ SOIL_MODEL_MAP = {
 
 def _resolve_soil_model(model: str) -> int:
     """Convert a soil model name string to its Plaxis enum integer."""
-    key = model.strip().lower().replace("_", " ").replace("-", "-")
-    if key in SOIL_MODEL_MAP:
-        return SOIL_MODEL_MAP[key]
+    key = model.strip().lower().replace("_", " ").replace("-", " ")
+    # Normalize map keys the same way so hyphens in canonical names
+    # (e.g. "ngi-adp", "hoek-brown") don't cause mismatches.
+    normalized_map = {k.replace("-", " "): v for k, v in SOIL_MODEL_MAP.items()}
+    if key in normalized_map:
+        return normalized_map[key]
     # Try partial match
-    for name, val in SOIL_MODEL_MAP.items():
+    for name, val in normalized_map.items():
         if key in name or name in key:
             return val
     # Default to Mohr-Coulomb if unrecognized

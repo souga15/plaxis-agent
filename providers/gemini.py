@@ -1,19 +1,34 @@
 import os
 import asyncio
+import logging
 from .base import LLMProvider
-from google import genai
+
+logger = logging.getLogger(__name__)
 
 class GeminiProvider(LLMProvider):
     def __init__(self):
         super().__init__("Gemini")
         self.api_key = os.getenv("GEMINI_API_KEY")
-        self.client = genai.Client(api_key=self.api_key) if self.api_key else None
+        self.client = None
+        if self.api_key:
+            try:
+                from google import genai
+                self.client = genai.Client(api_key=self.api_key)
+            except ImportError:
+                logger.warning(
+                    "google-genai package is not installed. "
+                    "Gemini provider will be unavailable. "
+                    "Install with: pip install google-genai"
+                )
 
     async def generate_response(self, system_prompt: str, user_prompt: str):
         if not self.client:
-            raise ValueError("GEMINI_API_KEY not set")
+            raise ValueError(
+                "Gemini provider is not available. "
+                "Check that GEMINI_API_KEY is set and google-genai is installed."
+            )
 
-        self._wait_for_cooldown()
+        await self._wait_for_cooldown()
 
         # Run the synchronous Gemini SDK call in a thread pool
         # so it doesn't block the FastAPI async event loop

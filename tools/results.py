@@ -3,78 +3,110 @@ from plaxis_connection import connection_manager
 
 logger = logging.getLogger(__name__)
 
-def get_displacements(phase_name: str, point: list):
+def get_displacements(phase_name: str, point: list = None):
     """
-    Get displacement components (Ux, Uy, Uz) at a specific point in a phase.
+    Get displacement components (Ux, Uy, Uz) in a phase.
+
+    When *point* is provided as [x, y, z], returns displacements at that
+    specific location using ``getsingleresult``.  When *point* is ``None``,
+    returns the max/min envelope over the entire model.
 
     Args:
         phase_name (str): Name of the calculation phase.
-        point (list): [x, y, z] coordinates of the query point.
+        point (list, optional): [x, y, z] coordinates of the query point.
     """
     s_o, g_o = connection_manager.get_output()
-    phase = connection_manager.find_object_by_name(phase_name)
+    phase = connection_manager.find_object_by_name(phase_name, server="output")
 
     try:
-        ux = g_o.getresults(phase, g_o.ResultTypes.Soil.Ux, "node")
-        uy = g_o.getresults(phase, g_o.ResultTypes.Soil.Uy, "node")
-        uz = g_o.getresults(phase, g_o.ResultTypes.Soil.Uz, "node")
-
-        # Return the results summary (max values as overview)
-        return {
-            "phase": phase_name,
-            "point": point,
-            "Ux_max": max(ux) if ux else "N/A",
-            "Uy_max": max(uy) if uy else "N/A",
-            "Uz_max": min(uz) if uz else "N/A",  # min for settlement (negative)
-            "note": "Showing max/min envelope values. For point-specific values, use Plaxis Output directly."
-        }
+        if point and len(point) >= 3:
+            # Point-specific query
+            x, y, z = float(point[0]), float(point[1]), float(point[2])
+            ux = g_o.getsingleresult(phase, g_o.ResultTypes.Soil.Ux, (x, y, z))
+            uy = g_o.getsingleresult(phase, g_o.ResultTypes.Soil.Uy, (x, y, z))
+            uz = g_o.getsingleresult(phase, g_o.ResultTypes.Soil.Uz, (x, y, z))
+            return {
+                "phase": phase_name,
+                "point": point,
+                "Ux": ux,
+                "Uy": uy,
+                "Uz": uz,
+            }
+        else:
+            # Full-model envelope
+            ux = g_o.getresults(phase, g_o.ResultTypes.Soil.Ux, "node")
+            uy = g_o.getresults(phase, g_o.ResultTypes.Soil.Uy, "node")
+            uz = g_o.getresults(phase, g_o.ResultTypes.Soil.Uz, "node")
+            return {
+                "phase": phase_name,
+                "Ux_max": max(ux) if ux else "N/A",
+                "Uy_max": max(uy) if uy else "N/A",
+                "Uz_max": min(uz) if uz else "N/A",  # min for settlement (negative)
+                "note": "No point specified — showing max/min envelope values.",
+            }
     except Exception as e:
         logger.error(f"Error getting displacements: {e}")
         return {"error": str(e), "phase": phase_name, "point": point}
 
-def get_stresses(phase_name: str, point: list):
+def get_stresses(phase_name: str, point: list = None):
     """
-    Get effective stress state at a point.
+    Get effective stress state in a phase.
+
+    When *point* is provided as [x, y, z], returns stresses at that
+    specific location.  Otherwise returns the min envelope.
 
     Args:
         phase_name (str): Name of the calculation phase.
-        point (list): [x, y, z] coordinates.
+        point (list, optional): [x, y, z] coordinates.
     """
     s_o, g_o = connection_manager.get_output()
-    phase = connection_manager.find_object_by_name(phase_name)
+    phase = connection_manager.find_object_by_name(phase_name, server="output")
 
     try:
-        sig_xx = g_o.getresults(phase, g_o.ResultTypes.Soil.SigxxE, "node")
-        sig_yy = g_o.getresults(phase, g_o.ResultTypes.Soil.SigyyE, "node")
-        sig_zz = g_o.getresults(phase, g_o.ResultTypes.Soil.SigzzE, "node")
-
-        return {
-            "phase": phase_name,
-            "sigma_xx_min": min(sig_xx) if sig_xx else "N/A",
-            "sigma_yy_min": min(sig_yy) if sig_yy else "N/A",
-            "sigma_zz_min": min(sig_zz) if sig_zz else "N/A",
-        }
+        if point and len(point) >= 3:
+            x, y, z = float(point[0]), float(point[1]), float(point[2])
+            sig_xx = g_o.getsingleresult(phase, g_o.ResultTypes.Soil.SigxxE, (x, y, z))
+            sig_yy = g_o.getsingleresult(phase, g_o.ResultTypes.Soil.SigyyE, (x, y, z))
+            sig_zz = g_o.getsingleresult(phase, g_o.ResultTypes.Soil.SigzzE, (x, y, z))
+            return {
+                "phase": phase_name,
+                "point": point,
+                "sigma_xx": sig_xx,
+                "sigma_yy": sig_yy,
+                "sigma_zz": sig_zz,
+            }
+        else:
+            sig_xx = g_o.getresults(phase, g_o.ResultTypes.Soil.SigxxE, "node")
+            sig_yy = g_o.getresults(phase, g_o.ResultTypes.Soil.SigyyE, "node")
+            sig_zz = g_o.getresults(phase, g_o.ResultTypes.Soil.SigzzE, "node")
+            return {
+                "phase": phase_name,
+                "sigma_xx_min": min(sig_xx) if sig_xx else "N/A",
+                "sigma_yy_min": min(sig_yy) if sig_yy else "N/A",
+                "sigma_zz_min": min(sig_zz) if sig_zz else "N/A",
+                "note": "No point specified — showing min envelope values.",
+            }
     except Exception as e:
         logger.error(f"Error getting stresses: {e}")
         return {"error": str(e), "phase": phase_name}
 
 def get_structural_forces(phase_name: str, structure_name: str):
     """
-    Get axial force (N), bending moment (M), and shear force (V) 
-    for structural elements like plates.
+    Get axial force (N), bending moment (M), and shear force (V)
+    for a specific structural element (e.g., a plate).
 
     Args:
         phase_name (str): Phase name.
         structure_name (str): Name of the structural element (e.g., 'Plate_1').
     """
     s_o, g_o = connection_manager.get_output()
-    phase = connection_manager.find_object_by_name(phase_name)
-    structure = connection_manager.find_object_by_name(structure_name)
+    phase = connection_manager.find_object_by_name(phase_name, server="output")
+    structure = connection_manager.find_object_by_name(structure_name, server="output")
 
     try:
-        N = g_o.getresults(phase, g_o.ResultTypes.Plate.Nx2D, "node")
-        M = g_o.getresults(phase, g_o.ResultTypes.Plate.M2D, "node")
-        Q = g_o.getresults(phase, g_o.ResultTypes.Plate.Q2D, "node")
+        N = g_o.getresults(structure, phase, g_o.ResultTypes.Plate.Nx2D, "node")
+        M = g_o.getresults(structure, phase, g_o.ResultTypes.Plate.M2D, "node")
+        Q = g_o.getresults(structure, phase, g_o.ResultTypes.Plate.Q2D, "node")
 
         return {
             "phase": phase_name,
@@ -98,11 +130,11 @@ def get_safety_factor(phase_name: str):
         phase_name (str): Name of the safety phase.
     """
     s_o, g_o = connection_manager.get_output()
-    phase = connection_manager.find_object_by_name(phase_name)
+    phase = connection_manager.find_object_by_name(phase_name, server="output")
 
     try:
         msf = g_o.getresults(phase, g_o.ResultTypes.Soil.SumMsf, "node")
-        
+
         # The safety factor is the last converged Sum-Msf value
         safety_factor = msf[-1] if msf else "N/A"
         return {
@@ -125,7 +157,7 @@ def export_results_to_excel(phase_name: str, output_path: str):
         import openpyxl
 
         s_o, g_o = connection_manager.get_output()
-        phase = connection_manager.find_object_by_name(phase_name)
+        phase = connection_manager.find_object_by_name(phase_name, server="output")
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -133,7 +165,7 @@ def export_results_to_excel(phase_name: str, output_path: str):
 
         # Write displacement results
         ws.append(["Result Type", "Max Value", "Min Value"])
-        
+
         for result_name, result_type in [
             ("Ux", g_o.ResultTypes.Soil.Ux),
             ("Uy", g_o.ResultTypes.Soil.Uy),

@@ -116,7 +116,8 @@
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
             if (data.type === "status") {
-                document.getElementById('input-status').className = 'status-indicator ' + (data.connected ? 'connected' : '');
+                document.getElementById('input-status').className = 'status-indicator ' + (data.input_connected ? 'connected' : '');
+                document.getElementById('output-status').className = 'status-indicator ' + (data.output_connected ? 'connected' : '');
             } else if (data.type === "chat") {
                 appendMessage('agent', data.message);
             }
@@ -135,7 +136,10 @@
         function appendMessage(sender, text) {
             const div = document.createElement('div');
             div.className = `message ${sender}`;
-            div.innerHTML = `<strong>${sender.toUpperCase()}:</strong> ${text}`;
+            const label = document.createElement('strong');
+            label.textContent = `${sender.toUpperCase()}: `;
+            div.appendChild(label);
+            div.appendChild(document.createTextNode(text));
             chat.appendChild(div);
             chat.scrollTop = chat.scrollHeight;
         }

@@ -5,6 +5,7 @@ from providers.groq import GroqProvider
 
 logger = logging.getLogger(__name__)
 
+
 class PlaxisAgent:
     def __init__(self):
         self.gemini = GeminiProvider()
@@ -41,10 +42,10 @@ STRUCTURES:
 - create_pile(point: list, depth: float)
 - create_interface(object_name: str)
 - create_load(load_type: str, points: list, value: list)
-    load_type: "surface" or "line", value: [qx, qy, qz] in kN/m²
+    load_type: "surface" or "line", value: [qx, qy, qz] in kN/mÂ²
 
 MESH:
-- generate_mesh(fineness: float)  — 0.0=very coarse, 0.5=medium, 1.0=very fine
+- generate_mesh(fineness: float)  â€” 0.0=very coarse, 0.5=medium, 1.0=very fine
 - refine_mesh_around(object_name: str, factor: float)
 - get_mesh_quality()
 
@@ -115,22 +116,23 @@ If no tools are needed (e.g., the user is asking a question), return:
                 logger.error(f"Both LLM providers failed. Gemini: {e}, Groq: {e2}")
                 return {
                     "tool_calls": [],
-                    "message": f"⚠️ Both AI providers failed.\nGemini error: {e}\nGroq error: {e2}"
+                    "message": (
+                        f"\u26a0\ufe0f Both AI providers failed.\n"
+                        f"Gemini error: {e}\n"
+                        f"Groq error: {e2}"
+                    ),
                 }
 
-        # Parse JSON response from LLM
         try:
-            # Try to extract JSON block if wrapped in markdown code fences
             if "```json" in response:
                 json_str = response.split("```json")[1].split("```")[0].strip()
             elif "```" in response:
                 json_str = response.split("```")[1].split("```")[0].strip()
             else:
                 json_str = response.strip()
-            
+
             parsed = json.loads(json_str)
 
-            # Validate expected structure
             if "tool_calls" not in parsed:
                 parsed["tool_calls"] = []
             if "message" not in parsed:
@@ -142,7 +144,8 @@ If no tools are needed (e.g., the user is asking a question), return:
             logger.debug(f"Raw LLM response: {response}")
             return {
                 "tool_calls": [],
-                "message": f"I understood your request but had a formatting issue. Here's my raw response:\n\n{response}"
+                "message": f"I understood your request but had a formatting issue. Here's my raw response:\n\n{response}",
             }
+
 
 agent = PlaxisAgent()

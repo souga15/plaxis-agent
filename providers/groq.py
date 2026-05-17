@@ -11,7 +11,7 @@ class GroqProvider(LLMProvider):
         if not self.api_key:
             raise ValueError("GROQ_API_KEY not set")
 
-        self._wait_for_cooldown()
+        await self._wait_for_cooldown()
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",

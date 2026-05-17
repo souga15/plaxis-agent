@@ -1,4 +1,5 @@
 import time
+import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,10 +10,10 @@ class LLMProvider:
         self.last_call_time = 0
         self.cooldown = 1.0 # default cooldown in seconds
 
-    def _wait_for_cooldown(self):
+    async def _wait_for_cooldown(self):
         elapsed = time.time() - self.last_call_time
         if elapsed < self.cooldown:
-            time.sleep(self.cooldown - elapsed)
+            await asyncio.sleep(self.cooldown - elapsed)
         self.last_call_time = time.time()
 
     async def generate_response(self, system_prompt: str, user_prompt: str):

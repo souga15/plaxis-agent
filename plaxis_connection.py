@@ -1,5 +1,4 @@
 import logging
-from plxscripting.easy import new_server
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,17 @@ class PlaxisConnection:
         self._port_i = port_i
         self._port_o = port_o
         self._password = password
+
+        # Lazy import: allows the app to start even when plxscripting is not installed
+        try:
+            from plxscripting.easy import new_server
+        except ImportError:
+            logger.error(
+                "plxscripting package is not installed. "
+                "Install it from your Plaxis installation or via pip."
+            )
+            self.is_connected = False
+            return False
 
         try:
             logger.info(f"Connecting to Plaxis Input server at {host}:{port_i}...")
@@ -73,21 +83,38 @@ class PlaxisConnection:
             )
         return self.s_o, self.g_o
 
-    def find_object_by_name(self, name: str):
+    @staticmethod
+    def _safe_attr(obj, attr_name: str):
+        """Safely read a Plaxis proxy attribute, returning None on failure."""
+        try:
+            val = getattr(obj, attr_name, None)
+            if val is None:
+                return None
+            return val.value if hasattr(val, 'value') else str(val)
+        except Exception:
+            return None
+
+    def find_object_by_name(self, name: str, server: str = "input"):
         """
-        Find a Plaxis object by its name across common collections.
-        This is the correct way to look up objects (not getattr).
-        
+        Find a Plaxis object by its Name or Identification across common collections.
+
         Args:
-            name: The Plaxis object name (e.g., 'Surface_1', 'Plate_1', 'Phase_1')
-        
+            name: The Plaxis object name or identification string
+                  (e.g., 'Surface_1', 'Plate_1', 'Phase_1', or a user-set display name).
+            server: Which Plaxis server to search — "input" (default) or "output".
+                    Use "output" when querying results so the returned object belongs
+                    to the Output server's object tree.
+
         Returns:
             The Plaxis object if found.
-        
+
         Raises:
             ValueError: If the object is not found in any collection.
         """
-        _, g = self.get_input()
+        if server == "output":
+            _, g = self.get_output()
+        else:
+            _, g = self.get_input()
 
         # Search through all common Plaxis object collections
         collections = [
@@ -104,11 +131,9 @@ class PlaxisConnection:
                 continue
             try:
                 for obj in collection:
-                    try:
-                        obj_name = obj.Name.value if hasattr(obj.Name, 'value') else str(obj.Name)
-                    except Exception:
-                        obj_name = str(obj)
-                    if obj_name == name:
+                    obj_name = self._safe_attr(obj, "Name")
+                    obj_id = self._safe_attr(obj, "Identification")
+                    if name in (obj_name, obj_id):
                         return obj
             except Exception:
                 continue
