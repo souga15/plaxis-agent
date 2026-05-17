@@ -1,4 +1,5 @@
-import os
+from contextlib import asynccontextmanager
+from pathlib import Path
 # Make sure env vars are loaded BEFORE importing other modules
 from dotenv import load_dotenv
 load_dotenv()
@@ -15,7 +16,21 @@ from tool_dispatcher import dispatch_tool_calls
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+DASHBOARD_PATH = Path(__file__).resolve().parent / "dashboard" / "index.html"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Attempt connection on startup (non-fatal if Plaxis isn't running yet)
+    try:
+        connection_manager.connect()
+    except Exception as e:
+        logger.warning(f"Could not connect to Plaxis on startup: {e}")
+        logger.info("You can connect later once Plaxis scripting server is enabled.")
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 def build_status_payload():
@@ -28,18 +43,9 @@ def build_status_payload():
         "output_connected": output_connected,
     }
 
-@app.on_event("startup")
-async def startup_event():
-    # Attempt connection on startup (non-fatal if Plaxis isn't running yet)
-    try:
-        connection_manager.connect()
-    except Exception as e:
-        logger.warning(f"Could not connect to Plaxis on startup: {e}")
-        logger.info("You can connect later once Plaxis scripting server is enabled.")
-
 @app.get("/")
 async def get_dashboard():
-    with open("dashboard/index.html", "r") as f:
+    with DASHBOARD_PATH.open("r", encoding="utf-8") as f:
         return HTMLResponse(f.read())
 
 @app.get("/api/status")
