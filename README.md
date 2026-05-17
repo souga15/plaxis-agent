@@ -5,13 +5,13 @@
 [![WebSocket](https://img.shields.io/badge/Realtime-WebSockets-orange.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
 [![API Layer](https://img.shields.io/badge/API-PLAXIS%20Remote%20Scripting-lightgrey.svg)](https://www.bentley.com/)
 
-An advanced, interactive AI assistant designed to automate geotechnical modeling and result extraction in PLAXIS 3D using natural language commands. Seamlessly translates human requests into precise geotechnical operations, providing an intuitive bridge between engineers and complex simulation software.
+ An advanced, interactive AI assistant designed to automate geotechnical modeling and result extraction in PLAXIS 3D using natural language commands. Seamlessly translates human requests into precise geotechnical operations using an autonomous multi-agent swarm, providing a highly resilient and self-correcting engineering workflow.
 
 ---
 
 ## System Architecture
 
-The agent functions via a modern event-driven loop that handles LLM tool-calling, connection monitoring, and resilient command dispatch:
+The agent functions via a modern event-driven loop that coordinates three specialized sub-agents, connection monitoring, and resilient command dispatch:
 
 ```
 ┌─────────────────────────────────┐
@@ -25,7 +25,7 @@ The agent functions via a modern event-driven loop that handles LLM tool-calling
                  │
                  ▼
 ┌─────────────────────────────────┐
-│      AI Agent Orchestrator      │ ◄─── Generates tool calls (Gemini/Groq)
+│   Multi-Agent Swarm (A2A)       │ ◄─── Geometry, Solver & Validation Agents
 └────────────────┬────────────────┘
                  │
                  ▼
@@ -43,7 +43,10 @@ The agent functions via a modern event-driven loop that handles LLM tool-calling
 
 ## Key Features
 
-* **Natural Language Processing**: Translates high-level requests (e.g., "Create a 10m deep excavation in a 3-layer soil profile") into ordered geometric, material, and stage sequences.
+* **Multi-Agent Geotechnical Swarm**: Distributes responsibilities among three specialized sub-agents (`GeometryAgent`, `CalculationAgent`, and `ValidationAgent`) coordinating a linear engineering pipeline.
+* **Self-Correcting Design Loop**: Implements automated feedback loops. If the `ValidationAgent` computes a safety factor below standard limits ($FoS < 1.25$), it automatically constructs correction instructions and triggers the `GeometryAgent` to strengthen structural elements and recalculate.
+* **Spatial Query Engine**: Incorporates a coordinate-based bounding-box lookup engine (`find_object_by_coordinates`), completely bypassing fragile proxy string name guesses (e.g. `Volume_1_1`) when geometries split during meshing.
+* **Strict Pydantic Validation**: Uses robust `pydantic` schemas to parse and type-check LLM tool outputs, keeping arguments safe, precise, and structurally verified before execution.
 * **Soil Profile Builder**: A model-aware interactive GUI tab to define layers, depths, and soil parameters (Mohr-Coulomb, Hardening Soil, Linear Elastic) with real-time UI updates.
 * **Cross-Version Compatibility Layer**: Implements automatic, resilient CLI commands (`call_command`) and dynamic mode transitions (`gotosoil`, `gotostructures`, `gotomesh`, `gotostages`) to ensure compatibility across official, custom, and repackaged PLAXIS builds.
 * **Real-time Status Feed**: Dual-server WebSocket lights that display the connection state of the Input and Output scripting servers independently.
