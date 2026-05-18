@@ -1,56 +1,60 @@
-# PLAXIS 3D AI Automation Agent
+# PLAXIS AI Automation Agent
 
 [![Python Version](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
-[![Framework](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 [![WebSocket](https://img.shields.io/badge/Realtime-WebSockets-orange.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
-[![API Layer](https://img.shields.io/badge/API-PLAXIS%20Remote%20Scripting-lightgrey.svg)](https://www.bentley.com/)
+[![LLM Provider](https://img.shields.io/badge/LLM-Anthropic%20Claude%203.5-red.svg)](https://www.anthropic.com/)
+[![Executable](https://img.shields.io/badge/Desktop-Single--File%20EXE-purple.svg)](#compilation--desktop-distribution)
 
- An advanced, interactive AI assistant designed to automate geotechnical modeling and result extraction in PLAXIS 3D using natural language commands. Seamlessly translates human requests into precise geotechnical operations using an autonomous multi-agent swarm, providing a highly resilient and self-correcting engineering workflow.
+An enterprise-ready AI automation agent designed to automate geotechnical modeling and result extraction in PLAXIS 2D/3D using natural language commands. Features a premium side-by-side split-screen dashboard, a real-time auto-synchronized CAD simulation engine, and an autonomous, self-correcting multi-agent optimization swarm powered by **Anthropic Claude 3.5**.
 
 ---
 
 ## System Architecture
 
-The agent functions via a modern event-driven loop that coordinates three specialized sub-agents, connection monitoring, and resilient command dispatch:
+The system coordinates specialized sub-agents, live remote scripting RPC endpoints, and a responsive WebSocket dashboard:
 
 ```
-┌─────────────────────────────────┐
-│     Web Dashboard (HTML5)       │ ◄─── Real-time status / Chat logs
-└────────────────┬────────────────┘
-                 │ (WebSockets)
-                 ▼
-┌─────────────────────────────────┐
-│     FastAPI WebSocket Server     │ ◄─── Manages connections, reads .env
-└────────────────┬────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────┐
-│   Multi-Agent Swarm (A2A)       │ ◄─── Geometry, Solver & Validation Agents
-└────────────────┬────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────┐
-│     Cross-Version API Layer     │ ◄─── Safe wrappers & CLI fallback execution
-└────────────────┬────────────────┘
-                 │ (PLAXIS Remote Scripting RPC)
-                 ▼
-┌─────────────────────────────────┐
-│       PLAXIS 3D Engine          │ ◄─── Builds models, meshes, runs FEA
-└─────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│             Premium Split-Screen Web GUI               │
+│  ┌──────────────────────────┬───────────────────────┐  │
+│  │   AI Chat & Markdown     │  Live CAD Simulation  │  │
+│  │     Logs (Left)          │  Viewport (Right)     │  │
+│  └──────────────────────────┴───────────────────────┘  │
+└──────────────────────────┬─────────────────────────────┘
+                           │ (Bi-directional WebSockets)
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│             FastAPI Production API Server              │
+│  - Captures /api/model/screenshot                      │
+│  - Feeds realtime model & soil profile updates         │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│            Geotechnical Multi-Agent Swarm              │
+│  Geometry, Calculations, and Verification Loops        │
+└──────────────────────────┬─────────────────────────────┘
+                           │ (PLAXIS Remote Scripting RPC)
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│            Active PLAXIS Geotechnical Engine           │
+│  Creates grids, boreholes, runs finite element mesh    │
+└──────────────────────────┬─────────────────────────────┘
 ```
 
 ---
 
 ## Key Features
 
-* **Multi-Agent Geotechnical Swarm**: Distributes responsibilities among three specialized sub-agents (`GeometryAgent`, `CalculationAgent`, and `ValidationAgent`) coordinating a linear engineering pipeline.
-* **Self-Correcting Design Loop**: Implements automated feedback loops. If the `ValidationAgent` computes a safety factor below standard limits ($FoS < 1.25$), it automatically constructs correction instructions and triggers the `GeometryAgent` to strengthen structural elements and recalculate.
-* **Spatial Query Engine**: Incorporates a coordinate-based bounding-box lookup engine (`find_object_by_coordinates`), completely bypassing fragile proxy string name guesses (e.g. `Volume_1_1`) when geometries split during meshing.
-* **Strict Pydantic Validation**: Uses robust `pydantic` schemas to parse and type-check LLM tool outputs, keeping arguments safe, precise, and structurally verified before execution.
-* **Soil Profile Builder**: A model-aware interactive GUI tab to define layers, depths, and soil parameters (Mohr-Coulomb, Hardening Soil, Linear Elastic) with real-time UI updates.
-* **Cross-Version Compatibility Layer**: Implements automatic, resilient CLI commands (`call_command`) and dynamic mode transitions (`gotosoil`, `gotostructures`, `gotomesh`, `gotostages`) to ensure compatibility across official, custom, and repackaged PLAXIS builds.
-* **Real-time Status Feed**: Dual-server WebSocket lights that display the connection state of the Input and Output scripting servers independently.
-* **XSS & Unicode Safe**: Pure ASCII WebSocket protocol with escaped Unicode representations and sanitization nodes to prevent mojibake and XSS vulnerability risks.
+* **Claude 3.5 Geotechnical Swarm**: Uses advanced prompts optimized for Anthropic Claude 3.5, providing highly reliable command sequencing, complex logic execution, and formal engineering report formatting.
+* **Premium Split-Screen Workspace**: Features a sleek side-by-side split viewport. Left pane hosts the conversation with structured markdown rendering (via `marked.js`), and the right pane shows the real-time active finite element model!
+* **Auto-Synchronized CAD Simulation Viewport**:
+  * **Connected Mode**: Triggers `g_i.writepng()` inside PLAXIS to serve actual pixels of your 3D/2D model.
+  * **Simulation / Offline Mode**: Generates a dynamic CAD vector SVG that *updates live* (boreholes, retaining walls, ground anchors, piles, excavations) as you type commands!
+* **Geotechnical Model Builder**: Model-aware soil builder GUI tab to configure strata layers, depths, and soil parameters (Mohr-Coulomb, Hardening Soil, Linear Elastic) instantly.
+* **Self-Correcting Verification Loops**: Automated optimization cycle. If calculated Safety Factors are below engineering design standards ($FoS < 1.25$), the validation loop dynamically triggers structural reinforcements and recalculates.
+* **Cross-Version Resilience Layer**: Built-in CLI command dispatcher (`call_command`) and wrapper try-except blocks to gracefully execute actions across standard, custom, or packaged PLAXIS installations.
 
 ---
 
@@ -58,48 +62,60 @@ The agent functions via a modern event-driven loop that coordinates three specia
 
 | Category | Supported Operations | Key Geotechnical Models & Parameters |
 | :--- | :--- | :--- |
-| **Geometry** | Boreholes, Surface boundaries, Volume extrusion, Multi-layer soil profiles | XYZ coordinates, layer boundaries, extrusion vectors |
-| **Materials** | Soil Material creation, Plate Material creation, Anchor Material, Assignment logic | Mohr-Coulomb, Hardening Soil, Soft Soil, Linear Elastic, Hoek-Brown, NGI-ADP ($\gamma_{sat}$, $\gamma_{unsat}$, $E_{ref}$, $c_{ref}$, $\phi$, $\psi$) |
-| **Structures** | Plates, Ground Anchors, Piles, Interfaces, Surface/Line Loads | Multi-coordinate points, load values ($q_x, q_y, q_z$) |
-| **Mesh** | Mesh generation, Local refinement regions, quality logging | Coarseness settings (Very Coarse to Very Fine) |
-| **Calculation** | Phase creation, Stage parameters, Active/Inactive states, calculation trigger | Phase Types (Plastic, Safety, Consolidation, Dynamic) |
-| **Results** | Displacement vectors ($U_x, U_y, U_z$), Effective Stress tensors, Plate bending moments ($M$), Axial force ($N$), Shear force ($V$), FoS ($Sum-Msf$) | Point-specific query (`getsingleresult`), Model envelope analysis (`getresults`), Excel exports (`openpyxl`) |
+| **Geometry** | Boreholes, boundary constraints, soil volumes, plate boundaries | Coordinates ($X, Y, Z$), thicknesses, layers |
+| **Materials** | Soil parameters, Plate elastic properties, anchors, interfaces | Mohr-Coulomb, Hardening Soil, Linear Elastic ($\gamma_{sat}$, $\gamma_{unsat}$, $E_{ref}$, $c_{ref}$, $\phi$) |
+| **Structures** | Retaining diaphragm walls, node-to-node anchors, embedded beams (piles), loads | Coordinates, anchor spacing, line/surface load intensities ($q_x, q_y, q_z$) |
+| **Solvers & Calculations** | Mesh generation, Phase staging, Calculation activation, calculation triggers | Plastic calculations, Safety margin calculations ($Sum-Msf$), Consolidation stages |
+| **Data Extraction** | Bending moment diagrams ($M$), Shear ($V$), Axial ($N$), FoS envelopes, deformations | Point query displacement, Excel exports (`openpyxl`) |
 
 ---
 
-## Installation & Quick Start
+## Getting Started
 
-### 1. Download & Extract
-1. Click the green **Code** button at the top of this repository and select **Download ZIP**.
-2. Unzip the folder to your local working directory.
+### 1. Configure Credentials
+Create a `.env` file in the root directory (or use the Settings tab inside the app):
+```env
+ANTHROPIC_API_KEY=your_claude_api_key_here
+PLAXIS_SIMULATION_MODE=false
+```
 
-### 2. Configure Dependencies (Automatic)
-Double-click the **`setup.bat`** file located in the root folder.
-* **No Python installed?** The script automatically uses Windows `winget` to securely install Python 3.11.
-* **Python already configured?** The script installs required Python packages (`fastapi`, `google-genai`, `python-dotenv`, etc.) and walks you through an interactive wizard to configure your Gemini and Groq API keys.
-
-### 3. Open PLAXIS Remote Scripting
+### 2. Configure PLAXIS Scripting Server
 1. Launch **PLAXIS 3D**.
 2. Navigate to **Expert** -> **Configure remote scripting server**.
-3. Enable the scripting server on port **10000** (and port **10001** for Output queries if needed). Leave the password blank.
+3. Enable the scripting server on port **10000** (Input) and **10001** (Output). Leave the password blank.
 
-### 4. Run the Agent
-1. Double-click **`run.bat`**. Keep the command window running in the background.
-2. Open your web browser and navigate to:
-   **`http://localhost:8501`**
-3. Switch between **AI Chat** and **Soil Profile Builder** to control your model.
+### 3. Run from Source
+Install dependencies and launch the server:
+```powershell
+pip install -r requirements.txt
+python app.py
+```
+Open **`http://localhost:8000`** in your browser.
 
 ---
 
-## Troubleshooting & Advanced Configuration
+## Compilation & Desktop Distribution
 
-> [!NOTE]  
-> If the automatic setup fails to configure Python, download Python 3.11 manually from [python.org](https://www.python.org/downloads/). **Ensure you check the box that says "Add Python to PATH" during installation.**
+For zero-dependency deployment on client machines, package the application into a standalone Windows desktop executable:
 
-> [!IMPORTANT]  
-> If you are using a custom or unofficial PLAXIS build and receive an API exception, the agent will automatically attempt a CLI fallback command. Check the backend server log; it will log a `WARNING: Wrapper gotomode() unavailable, falling back to native command` indicating that the compatibility layer successfully bypassed the API restriction.
+1. Rebuild the distribution binary:
+   ```powershell
+   .\build.bat
+   ```
+2. The compilation completes and produces a standalone executable at:
+   `dist/PlaxisAI.exe` (~45.4 MB)
+3. Share `PlaxisAI.exe` directly. Users can double-click to launch the dashboard and configure credentials directly within the Settings tab.
+
+---
+
+## Automated Test Suite
+
+We keep a resilient critical-path automated test suite verifying connection fallbacks and error handling. Run the suite:
+```powershell
+python -m pytest tests/ -v
+```
 
 ---
 
 ## License
-This project is open-source and available under the [MIT License](LICENSE).
+Geotechnical automation platform is available under the [MIT License](LICENSE).
