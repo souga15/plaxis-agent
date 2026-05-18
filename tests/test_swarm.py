@@ -13,17 +13,19 @@ from tools.phases import set_water_level
 @pytest.mark.asyncio
 async def test_no_api_keys_friendly_message():
     """Verify missing API keys don't crash and return the config warning."""
-    gemini_mock = AsyncMock()
-    gemini_mock.generate_response.side_effect = ValueError("No API key")
+    mock1 = AsyncMock()
+    mock1.name = "Mock1"
+    mock1.generate_response.side_effect = ValueError("No API key")
     
-    groq_mock = AsyncMock()
-    groq_mock.generate_response.side_effect = ValueError("No API key")
+    mock2 = AsyncMock()
+    mock2.name = "Mock2"
+    mock2.generate_response.side_effect = ValueError("No API key")
     
-    response = await _call_llm(gemini_mock, groq_mock, "system", "prompt")
+    response = await _call_llm([mock1, mock2], "system", "prompt")
     
     assert "tool_calls" in response
     assert response["tool_calls"] == []
-    assert "⚠️ **Configuration Required**" in response["message"]
+    assert "AI Execution Failure" in response["message"]
 
 def test_simulation_mode_env_forced():
     """Verify PLAXIS_SIMULATION_MODE forces mock connection."""

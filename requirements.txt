@@ -7,5 +7,7 @@ google-genai
 python-dotenv
 openpyxl
 pydantic
+pywebview
+pyinstaller
 pytest
 pytest-asyncio

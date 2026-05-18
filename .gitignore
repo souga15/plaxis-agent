@@ -37,3 +37,9 @@ MANIFEST
 *.njsproj
 *.sln
 *.sw?
+
+# PyInstaller
+*.spec
+dist/
+build/
+*.exe

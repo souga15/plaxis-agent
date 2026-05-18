@@ -24,15 +24,50 @@ class MockPlaxisServer:
         self.Surfaces = []
         self.Volumes = []
         self.Plates = []
-        
+        self.reset_model_state()
+
+    def reset_model_state(self):
+        self.has_excavation = False
+        self.excavation_depth = 100 # y position in SVG
+        self.has_retaining_wall = False
+        self.has_anchors = False
+        self.has_piles = False
+        self.layers_list = [
+            {"name": "Sand Layer (Unsat)", "thickness": 90, "color": "sand"},
+            {"name": "Silt Layer (Water Level)", "thickness": 110, "color": "silt"},
+            {"name": "Deep Clay Layer (Consolidation)", "thickness": 120, "color": "clay"}
+        ]
+
     def __getattr__(self, name):
         def mock_func(*args, **kwargs):
-            if name == "getresults":
+            name_lower = name.lower()
+            if name_lower == "getresults":
                 return [1.32]  # Safe simulated FoS
+            elif name_lower in ("plate", "create_plate"):
+                self.has_retaining_wall = True
+            elif name_lower in ("nodetonode", "create_anchor"):
+                self.has_anchors = True
+            elif name_lower in ("embeddedbeam", "create_pile"):
+                self.has_piles = True
+            elif name_lower in ("deactivate", "excavate"):
+                self.has_excavation = True
+            elif name_lower in ("new", "newproject", "new_project"):
+                self.reset_model_state()
             return MockPlaxisObject(f"Mock_{name}")
         return mock_func
 
     def call_and_handle_command(self, cmd):
+        cmd_lower = cmd.lower()
+        if "plate" in cmd_lower:
+            self.has_retaining_wall = True
+        elif "nodetonode" in cmd_lower:
+            self.has_anchors = True
+        elif "embeddedbeam" in cmd_lower:
+            self.has_piles = True
+        elif "deactivate" in cmd_lower or "excavate" in cmd_lower:
+            self.has_excavation = True
+        elif "new" in cmd_lower or "newproject" in cmd_lower:
+            self.reset_model_state()
         return f"[SIMULATED] {cmd}"
 
 class PlaxisConnection:

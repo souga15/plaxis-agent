@@ -6,6 +6,7 @@
     <title>Plaxis AI Agent</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --bg: #0d0f14;
@@ -133,7 +134,7 @@
 
         /* ── CHAT VIEW ── */
         #view-chat {
-            flex-direction: column;
+            flex-direction: row;
             padding: 0;
         }
         .chat-history {
@@ -146,12 +147,60 @@
         }
         .message {
             max-width: 80%;
-            padding: 12px 16px;
+            padding: 14px 18px;
             border-radius: 12px;
             font-size: 0.88rem;
             line-height: 1.6;
-            white-space: pre-wrap;
             word-break: break-word;
+        }
+        .message p {
+            margin-bottom: 10px;
+        }
+        .message p:last-child {
+            margin-bottom: 0;
+        }
+        .message ul, .message ol {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+        .message li {
+            margin-bottom: 4px;
+        }
+        .message h3 {
+            font-size: 0.95rem;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            color: #fff;
+            font-weight: 700;
+        }
+        .message h4 {
+            font-size: 0.88rem;
+            margin-top: 12px;
+            margin-bottom: 6px;
+            color: rgba(255,255,255,0.85);
+            font-weight: 600;
+        }
+        .message code {
+            font-family: 'Inter', monospace;
+            background: rgba(0,0,0,0.2);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: var(--accent);
+        }
+        .message pre {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+        }
+        .message pre code {
+            background: none;
+            padding: 0;
+            color: var(--text);
+            font-size: 0.8rem;
         }
         .message.user {
             align-self: flex-end;
@@ -346,6 +395,91 @@
             margin-top: 8px;
         }
 
+        /* ── SETTINGS VIEW ── */
+        #view-settings {
+            flex-direction: column;
+            padding: 28px;
+            overflow-y: auto;
+            gap: 24px;
+        }
+        .settings-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 22px;
+        }
+        .settings-card .card-title { margin-bottom: 16px; }
+        .key-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .key-row label {
+            min-width: 120px;
+            font-size: 0.8rem;
+        }
+        .key-row input {
+            flex: 1;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-size: 0.88rem;
+            font-family: 'Inter', monospace;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .key-row input:focus { border-color: var(--accent); }
+        .key-badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .key-badge.active { background: rgba(74,222,128,0.15); color: var(--success); }
+        .key-badge.inactive { background: rgba(122,131,153,0.15); color: var(--muted); }
+        .provider-list {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .provider-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: var(--panel2);
+        }
+        .provider-chip.active {
+            border-color: var(--accent);
+            background: rgba(0,201,177,0.1);
+            color: var(--accent);
+        }
+        .save-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--accent);
+            color: #000;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        .save-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         /* scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -372,11 +506,11 @@
 
     <div>
         <div class="section-title">Quick Actions</div>
-        <button class="quick-btn" onclick="quickSend('Start new project')">🗂 New Project</button>
-        <button class="quick-btn" onclick="quickSend('List all phases')">📋 List Phases</button>
-        <button class="quick-btn" onclick="quickSend('Run calculation')">⚡ Run Calculation</button>
-        <button class="quick-btn" onclick="quickSend('Get safety factor for Safety_Phase')">🛡 Safety Factor</button>
-        <button class="quick-btn" onclick="quickSend('Show mesh quality')">🔲 Mesh Quality</button>
+        <button class="quick-btn" onclick="quickSend('Start new project')">New Project</button>
+        <button class="quick-btn" onclick="quickSend('List all phases')">List Phases</button>
+        <button class="quick-btn" onclick="quickSend('Run calculation')">Run Calculation</button>
+        <button class="quick-btn" onclick="quickSend('Get safety factor for Safety_Phase')">Safety Factor</button>
+        <button class="quick-btn" onclick="quickSend('Show mesh quality')">Mesh Quality</button>
     </div>
 </div>
 
@@ -385,17 +519,48 @@
 
     <!-- TOPBAR / TABS -->
     <div class="topbar">
-        <div class="tab active" id="tab-chat" onclick="switchTab('chat')">💬 AI Chat</div>
-        <div class="tab" id="tab-soil" onclick="switchTab('soil')">🪨 Soil Profile Builder</div>
+        <div class="tab active" id="tab-chat" onclick="switchTab('chat')">AI Chat</div>
+        <div class="tab" id="tab-soil" onclick="switchTab('soil')">Soil Profile Builder</div>
+        <div class="tab" id="tab-settings" onclick="switchTab('settings')">Settings</div>
     </div>
 
-    <!-- CHAT VIEW -->
-    <div class="view active" id="view-chat">
-        <div class="chat-history" id="chat"></div>
-        <div class="chat-input-bar">
-            <input type="text" id="prompt" placeholder="e.g., Create a 10 m deep excavation in clay…"
-                   onkeypress="if(event.key==='Enter') sendPrompt()">
-            <button class="send-btn" onclick="sendPrompt()">Send →</button>
+    <!-- CHAT VIEW WITH INTEGRATED VIEWPORT -->
+    <div class="view active" id="view-chat" style="flex-direction: row; align-items: stretch;">
+        
+        <!-- Left Side: Chat Panel -->
+        <div class="chat-container" style="flex: 1.1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); height: 100%;">
+            <div class="chat-history" id="chat"></div>
+            <div class="chat-input-bar">
+                <input type="text" id="prompt" placeholder="e.g., Create a 10 m deep excavation in clay…"
+                       onkeypress="if(event.key==='Enter') sendPrompt()">
+                <button class="send-btn" onclick="sendPrompt()">Send</button>
+            </div>
+        </div>
+
+        <!-- Right Side: Live Model Viewport -->
+        <div class="chat-model-pane" style="flex: 0.9; display: flex; flex-direction: column; padding: 24px; background: #0f1219; height: 100%; overflow-y: auto; box-sizing: border-box;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+                <div>
+                    <h3 style="font-size: 1rem; margin: 0; color: #fff; font-weight:600;">Live Finite Element Viewport</h3>
+                    <p style="font-size: 0.75rem; color: var(--muted); margin: 2px 0 0 0;">Visual capture of the active PLAXIS state</p>
+                </div>
+                <button class="send-btn" onclick="refreshModelView()" style="padding: 6px 12px; font-size: 0.75rem; font-weight:600; width:auto; border-radius:6px; margin: 0;">
+                    Refresh Viewport
+                </button>
+            </div>
+            
+            <div class="card" style="padding: 12px; text-align: center; border-color: var(--border); background: #0b0d12; margin: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 380px;">
+                <div style="width: 100%; flex: 1; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #11141a; min-height: 360px; border: 1px solid var(--border);">
+                    <img id="model-view-img" src="/api/model/screenshot" style="max-width: 100%; max-height: 520px; display: block; object-fit: contain; border-radius: 4px;" alt="Active PLAXIS viewport rendering">
+                </div>
+                <div style="margin-top: 10px; font-size: 0.72rem; color: var(--muted); display:flex; justify-content:space-between; align-items:center; padding: 0 4px;">
+                    <span>Active Workspace Capture</span>
+                    <span style="display:flex; align-items:center; gap:4px;">
+                        <span style="display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--accent);"></span>
+                        Auto-synchronized
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -404,12 +569,12 @@
 
         <div class="builder-header">
             <h1>Soil Profile Builder</h1>
-            <p>Define your soil layers and parameters below, then send them directly to Plaxis — no typing required.</p>
+            <p>Define your soil layers and parameters below, then send them directly to Plaxis.</p>
         </div>
 
         <!-- Material Definition Card -->
         <div class="card">
-            <div class="card-title">🪨 Soil Material Properties</div>
+            <div class="card-title">Soil Material Properties</div>
             <div class="form-grid">
 
                 <div class="form-group">
@@ -507,7 +672,7 @@
 
         <!-- Borehole / Layer Card -->
         <div class="card">
-            <div class="card-title">📐 Borehole & Depth</div>
+            <div class="card-title">Borehole &amp; Depth</div>
             <div class="form-grid three">
                 <div class="form-group">
                     <label>Borehole X (m)</label>
@@ -531,18 +696,55 @@
 
         <!-- Send Actions -->
         <div class="card">
-            <div class="card-title">🚀 Send to Plaxis</div>
+            <div class="card-title">Send to Plaxis</div>
             <p class="hint" style="margin-bottom:16px;">
-                This will: (1) create the soil material, (2) create the borehole with layers, and (3) assign the material. The commands will appear in the Chat tab so you can see what was sent.
+                Creates the soil material, generates the borehole with specified layers, and assigns the material. The command logs are displayed in the Chat tab.
             </p>
             <div class="action-row">
-                <button class="btn-primary" onclick="sendToPlaxis()">⚡ Create Material &amp; Borehole</button>
-                <button class="btn-secondary" onclick="previewPrompt()">👁 Preview Prompt</button>
+                <button class="btn-primary" onclick="sendToPlaxis()">Create Material &amp; Borehole</button>
+                <button class="btn-secondary" onclick="previewPrompt()">Preview Prompt</button>
             </div>
         </div>
 
     </div><!-- /view-soil -->
+
+    <!-- SETTINGS VIEW -->
+    <div class="view" id="view-settings">
+        <div class="builder-header">
+            <h1>Settings</h1>
+            <p>Configure API credentials for the active LLM providers. Priority order: Claude &rarr; Gemini &rarr; Groq.</p>
+        </div>
+
+        <div class="settings-card">
+            <div class="card-title">API Credentials</div>
+            <div class="key-row">
+                <label>Gemini <span class="key-badge inactive" id="badge-gemini">not set</span></label>
+                <input type="password" id="key-gemini" placeholder="Paste Gemini API key…">
+            </div>
+            <div class="key-row">
+                <label>Groq <span class="key-badge inactive" id="badge-groq">not set</span></label>
+                <input type="password" id="key-groq" placeholder="Paste Groq API key…">
+            </div>
+            <div class="key-row">
+                <label>Claude <span class="key-badge inactive" id="badge-claude">not set</span></label>
+                <input type="password" id="key-claude" placeholder="Paste Anthropic API key…">
+            </div>
+            <p class="hint">Get keys: <a href="https://aistudio.google.com/" target="_blank" style="color:var(--accent)">Gemini</a> · <a href="https://console.groq.com/" target="_blank" style="color:var(--accent)">Groq</a> · <a href="https://console.anthropic.com/" target="_blank" style="color:var(--accent)">Claude</a></p>
+            <div class="action-row" style="margin-top:18px;">
+                <button class="btn-primary" onclick="saveSettings()">Save &amp; Apply Changes</button>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="card-title">Active AI Providers</div>
+            <p class="hint" style="margin-bottom:10px;">The highest priority active provider will automatically be selected for calculation planning.</p>
+            <div class="provider-list" id="provider-list"></div>
+        </div>
+    </div><!-- /view-settings -->
+
 </div><!-- /main -->
+
+<div class="save-toast" id="save-toast">Settings saved</div>
 
 <script>
 // ── WebSocket ──────────────────────────────────────────
@@ -556,15 +758,27 @@ ws.onmessage = function(event) {
         document.getElementById('output-dot').className = 'dot ' + (data.output_connected ? 'on' : '');
     } else if (data.type === 'chat') {
         appendMessage('agent', data.message);
+        refreshModelView();
     }
 };
 
 // ── Tabs ──────────────────────────────────────────────
 function switchTab(name) {
-    ['chat','soil'].forEach(t => {
-        document.getElementById('tab-' + t).classList.toggle('active', t === name);
-        document.getElementById('view-' + t).classList.toggle('active', t === name);
+    ['chat','soil','settings'].forEach(t => {
+        const tabEl = document.getElementById('tab-' + t);
+        const viewEl = document.getElementById('view-' + t);
+        if (tabEl) tabEl.classList.toggle('active', t === name);
+        if (viewEl) viewEl.classList.toggle('active', t === name);
     });
+    if (name === 'settings') loadSettings();
+    if (name === 'chat') refreshModelView();
+}
+
+function refreshModelView() {
+    const img = document.getElementById('model-view-img');
+    if (img) {
+        img.src = '/api/model/screenshot?t=' + Date.now();
+    }
 }
 
 // ── Chat ─────────────────────────────────────────────
@@ -598,7 +812,7 @@ function appendMessage(sender, text) {
 
     const bubble = document.createElement('div');
     bubble.className = 'message ' + sender;
-    bubble.appendChild(document.createTextNode(text));
+    bubble.innerHTML = marked.parse(text);
 
     wrap.appendChild(label);
     wrap.appendChild(bubble);
@@ -704,6 +918,78 @@ function previewPrompt() {
     const prompt = buildPrompt();
     switchTab('chat');
     appendMessage('user', '[PREVIEW — not sent]\n' + prompt);
+}
+
+// ── Settings ─────────────────────────────────────────
+async function loadSettings() {
+    try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        // Update badges
+        setBadge('gemini', data.gemini_configured);
+        setBadge('groq', data.groq_configured);
+        setBadge('claude', data.claude_configured);
+        // Update placeholders with masked keys
+        if (data.gemini_key) document.getElementById('key-gemini').placeholder = data.gemini_key;
+        if (data.groq_key) document.getElementById('key-groq').placeholder = data.groq_key;
+        if (data.claude_key) document.getElementById('key-claude').placeholder = data.claude_key;
+        // Show active providers
+        const list = document.getElementById('provider-list');
+        list.innerHTML = '';
+        const allProviders = ['Claude', 'Gemini', 'Groq'];
+        allProviders.forEach(name => {
+            const chip = document.createElement('div');
+            const isActive = data.active_providers.includes(name);
+            chip.className = 'provider-chip' + (isActive ? ' active' : '');
+            chip.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:6px; background:${isActive ? 'var(--accent)' : 'var(--muted)'};"></span>` + name;
+            list.appendChild(chip);
+        });
+    } catch (e) { console.error('Failed to load settings:', e); }
+}
+
+function setBadge(provider, configured) {
+    const badge = document.getElementById('badge-' + provider);
+    if (configured) {
+        badge.textContent = 'active';
+        badge.className = 'key-badge active';
+    } else {
+        badge.textContent = 'not set';
+        badge.className = 'key-badge inactive';
+    }
+}
+
+async function saveSettings() {
+    const body = {};
+    const gemini = document.getElementById('key-gemini').value.trim();
+    const groq = document.getElementById('key-groq').value.trim();
+    const claude = document.getElementById('key-claude').value.trim();
+    if (gemini) body.gemini_key = gemini;
+    if (groq) body.groq_key = groq;
+    if (claude) body.claude_key = claude;
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.success) {
+            // Clear inputs
+            document.getElementById('key-gemini').value = '';
+            document.getElementById('key-groq').value = '';
+            document.getElementById('key-claude').value = '';
+            // Reload
+            loadSettings();
+            showToast('Settings saved successfully. Active: ' + data.active_providers.join(', '));
+        }
+    } catch (e) { showToast('Failed to save settings'); }
+}
+
+function showToast(msg) {
+    const toast = document.getElementById('save-toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
 // ── Init ─────────────────────────────────────────────

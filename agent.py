@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, ValidationError
 from typing import List, Dict, Any
 from providers.gemini import GeminiProvider
 from providers.groq import GroqProvider
+from providers.claude import ClaudeProvider
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +18,8 @@ class AgentResponse(BaseModel):
 
 
 class GeometryAgent:
-    def __init__(self, gemini, groq):
-        self.gemini = gemini
-        self.groq = groq
+    def __init__(self, providers):
+        self.providers = providers
         self.system_prompt = """
 You are the Geotechnical Geometry Agent.
 Your job is to read the user's design constraints and any feedback, then generate structural, material, or coordinate layout tool calls.
@@ -58,13 +58,12 @@ Always create materials before assigning them.
             prompt += f"\nDesign Validation Feedback to address: {design_feedback}\n"
         
         logger.info("[Swarm] Invoking GeometryAgent...")
-        return await _call_llm(self.gemini, self.groq, self.system_prompt, prompt)
+        return await _call_llm(self.providers, self.system_prompt, prompt)
 
 
 class CalculationAgent:
-    def __init__(self, gemini, groq):
-        self.gemini = gemini
-        self.groq = groq
+    def __init__(self, providers):
+        self.providers = providers
         self.system_prompt = """
 You are the Solver and Calculation Agent.
 Your job is to read the active design state, create mesh parameters, define calculation phases, activate/deactivate structural elements, and run calculations.
@@ -91,13 +90,12 @@ Remember to generate the mesh before running the calculation!
     async def execute(self, user_prompt: str, geometry_log: str):
         prompt = f"User Request: {user_prompt}\n\nGeometry Actions Completed:\n{geometry_log}"
         logger.info("[Swarm] Invoking CalculationAgent...")
-        return await _call_llm(self.gemini, self.groq, self.system_prompt, prompt)
+        return await _call_llm(self.providers, self.system_prompt, prompt)
 
 
 class ValidationAgent:
-    def __init__(self, gemini, groq):
-        self.gemini = gemini
-        self.groq = groq
+    def __init__(self, providers):
+        self.providers = providers
         self.system_prompt = """
 You are the Extraction and Validation Agent.
 Your job is to query phase results (stresses, displacements, structural envelope forces, and factor of safety Msf) and verify if the design is completely safe.
@@ -117,16 +115,49 @@ Make sure to call `get_safety_factor` for any safety phase (e.g. Phase_2 or Phas
     async def execute(self, user_prompt: str, workflow_log: str):
         prompt = f"User Request: {user_prompt}\n\nWorkflow Execution Progress:\n{workflow_log}"
         logger.info("[Swarm] Invoking ValidationAgent...")
-        return await _call_llm(self.gemini, self.groq, self.system_prompt, prompt)
+        return await _call_llm(self.providers, self.system_prompt, prompt)
 
 
 class PlaxisAgentSwarm:
     def __init__(self):
-        self.gemini = GeminiProvider()
-        self.groq = GroqProvider()
-        self.geometry_agent = GeometryAgent(self.gemini, self.groq)
-        self.calculation_agent = CalculationAgent(self.gemini, self.groq)
-        self.validation_agent = ValidationAgent(self.gemini, self.groq)
+        self.providers = self._init_providers()
+        self.geometry_agent = GeometryAgent(self.providers)
+        self.calculation_agent = CalculationAgent(self.providers)
+        self.validation_agent = ValidationAgent(self.providers)
+
+    def _init_providers(self):
+        """Initialize all available LLM providers in priority order."""
+        providers = []
+        
+        # Claude first (best tool-calling quality)
+        claude = ClaudeProvider()
+        if claude.api_key:
+            providers.append(claude)
+            logger.info("Claude provider initialized (priority 1)")
+        
+        # Gemini second (free, good quality)
+        gemini = GeminiProvider()
+        if gemini.client:
+            providers.append(gemini)
+            logger.info("Gemini provider initialized (priority 2)")
+        
+        # Groq third (free, fast)
+        groq = GroqProvider()
+        if groq.api_key:
+            providers.append(groq)
+            logger.info("Groq provider initialized (priority 3)")
+        
+        if not providers:
+            logger.warning("No AI providers configured! Add API credentials in Settings.")
+        
+        return providers
+
+    def reload_providers(self):
+        """Re-initialize providers after settings change."""
+        self.providers = self._init_providers()
+        self.geometry_agent.providers = self.providers
+        self.calculation_agent.providers = self.providers
+        self.validation_agent.providers = self.providers
 
     async def process_request(self, user_prompt: str):
         """
@@ -136,59 +167,71 @@ class PlaxisAgentSwarm:
         """
         from tool_dispatcher import dispatch_tool_calls
 
+        if not self.providers:
+            return {
+                "tool_calls": [],
+                "message": (
+                    "### API Configuration Required\n\n"
+                    "To begin automating your Plaxis design workflows, please configure at least one active API key in the **Settings** view:\n\n"
+                    "* **Claude** (Preferred for advanced tool-calling accuracy)\n"
+                    "* **Gemini**\n"
+                    "* **Groq**"
+                )
+            }
+
         swarm_logs = []
         design_feedback = ""
         max_cycles = 2
 
         for cycle in range(max_cycles):
-            cycle_prefix = f"### 🔄 Design Optimization Cycle {cycle + 1}/{max_cycles}\n"
+            cycle_prefix = f"## Design Optimization Cycle {cycle + 1} of {max_cycles}\n"
             swarm_logs.append(cycle_prefix)
 
             # ---------------------------------------------
             # STEP 1: Geotechnical Geometry Agent
             # ---------------------------------------------
             geo_response = await self.geometry_agent.execute(user_prompt, design_feedback)
-            swarm_logs.append(f"🤖 **[Geotechnical Geometry Agent]**:\n{geo_response['message']}")
+            swarm_logs.append(f"### Geometry Design Phase\n{geo_response['message']}")
             
             geo_calls = geo_response.get("tool_calls", [])
             if geo_calls:
                 geo_results = dispatch_tool_calls(geo_calls)
-                exec_log = "\n".join([f"✅ `{r['tool']}`: {r['result']}" if r["success"] else f"❌ `{r['tool']}`: {r['result']}" for r in geo_results])
-                swarm_logs.append(f"📋 **Geometry Execution Results:**\n{exec_log}")
+                exec_log = "\n".join([f"  - [Success] `{r['tool']}`: {r['result']}" if r["success"] else f"  - [Failure] `{r['tool']}`: {r['result']}" for r in geo_results])
+                swarm_logs.append(f"**Geometry Execution Status:**\n{exec_log}")
                 geo_log_str = "\n".join([f"- {r['tool']}: Success={r['success']}, Output={r['result']}" for r in geo_results])
             else:
                 geo_log_str = "No geometry updates required."
-                swarm_logs.append("📋 *No geometry actions proposed.*")
+                swarm_logs.append("*No geometry actions proposed.*")
             
             # ---------------------------------------------
             # STEP 2: Solver & Calculation Agent
             # ---------------------------------------------
             calc_response = await self.calculation_agent.execute(user_prompt, geo_log_str)
-            swarm_logs.append(f"⚙️ **[Solver & Calculation Agent]**:\n{calc_response['message']}")
+            swarm_logs.append(f"### Soil Calculation Phase\n{calc_response['message']}")
             
             calc_calls = calc_response.get("tool_calls", [])
             if calc_calls:
                 calc_results = dispatch_tool_calls(calc_calls)
-                exec_log = "\n".join([f"✅ `{r['tool']}`: {r['result']}" if r["success"] else f"❌ `{r['tool']}`: {r['result']}" for r in calc_results])
-                swarm_logs.append(f"📋 **Calculation Execution Results:**\n{exec_log}")
+                exec_log = "\n".join([f"  - [Success] `{r['tool']}`: {r['result']}" if r["success"] else f"  - [Failure] `{r['tool']}`: {r['result']}" for r in calc_results])
+                swarm_logs.append(f"**Calculation Execution Status:**\n{exec_log}")
                 calc_log_str = "\n".join([f"- {r['tool']}: Success={r['success']}, Output={r['result']}" for r in calc_results])
             else:
                 calc_log_str = "No calculation actions required."
-                swarm_logs.append("📋 *No calculation actions proposed.*")
+                swarm_logs.append("*No calculation actions proposed.*")
 
             # ---------------------------------------------
             # STEP 3: Extraction & Validation Agent
             # ---------------------------------------------
             combined_progress = f"--- Geometry Phase ---\n{geo_log_str}\n\n--- Calculation Phase ---\n{calc_log_str}"
             val_response = await self.validation_agent.execute(user_prompt, combined_progress)
-            swarm_logs.append(f"🔍 **[Extraction & Validation Agent]**:\n{val_response['message']}")
+            swarm_logs.append(f"### Extraction & Validation Phase\n{val_response['message']}")
             
             val_calls = val_response.get("tool_calls", [])
             safety_factor = None
             if val_calls:
                 val_results = dispatch_tool_calls(val_calls)
-                exec_log = "\n".join([f"✅ `{r['tool']}`: {r['result']}" if r["success"] else f"❌ `{r['tool']}`: {r['result']}" for r in val_results])
-                swarm_logs.append(f"📋 **Extraction Results:**\n{exec_log}")
+                exec_log = "\n".join([f"  - [Success] `{r['tool']}`: {r['result']}" if r["success"] else f"  - [Failure] `{r['tool']}`: {r['result']}" for r in val_results])
+                swarm_logs.append(f"**Data Retrieval Status:**\n{exec_log}")
                 
                 # Check for get_safety_factor output
                 for r in val_results:
@@ -199,13 +242,17 @@ class PlaxisAgentSwarm:
                             if isinstance(val, (int, float)):
                                 safety_factor = val
             else:
-                swarm_logs.append("📋 *No result extraction actions proposed.*")
+                swarm_logs.append("*No result extraction actions proposed.*")
 
             # ---------------------------------------------
             # STEP 4: Safety Check & Feedback Loop
             # ---------------------------------------------
             if safety_factor is not None:
-                swarm_logs.append(f"📊 **[Safety Review]**: Current Safety Factor (Sum-Msf) = **{safety_factor:.3f}** (Target: **1.25**)")
+                swarm_logs.append(
+                    f"### Safety Evaluation\n"
+                    f"- **Computed Factor of Safety (Sum-Msf):** {safety_factor:.3f}\n"
+                    f"- **Target Factor of Safety Threshold:** 1.25"
+                )
                 if safety_factor < 1.25:
                     if cycle < max_cycles - 1:
                         design_feedback = (
@@ -214,13 +261,13 @@ class PlaxisAgentSwarm:
                             f"Geometry Agent, please redesign the structure to increase stability (e.g. increase wall thickness, "
                             f"deepen piles, or modify anchor stiffness)."
                         )
-                        swarm_logs.append(f"⚠️ **[Feedback Loop Triggered]**: Safety factor below target. Instructing Geometry Agent to strengthen the model and recalculate...")
-                        swarm_logs.append("\n" + "="*40 + "\n")
+                        swarm_logs.append(f"*Safety factor below target threshold. Instructing Geometry Agent to enhance structural support and perform a recalculation...*")
+                        swarm_logs.append("\n" + "---" + "\n")
                         continue
                     else:
-                        swarm_logs.append(f"🛑 **[Verification End]**: Design remains under-safe after maximum optimization cycles.")
+                        swarm_logs.append(f"### Design Verification Terminated\nThe design has reached the maximum refinement cycles and remains below the target safety margin.")
                 else:
-                    swarm_logs.append(f"✅ **[Verification Success]**: Design meets the target safety margin ($FoS \\ge 1.25$). Optimization complete.")
+                    swarm_logs.append(f"### Design Verification Success\nThe design satisfies all structural and geotechnical safety criteria (FoS >= 1.25).")
                     break
             else:
                 # No safety factor retrieved, complete execution
@@ -232,18 +279,29 @@ class PlaxisAgentSwarm:
         }
 
 
-async def _call_llm(gemini, groq, system_prompt: str, prompt: str) -> dict:
-    try:
-        response = await gemini.generate_response(system_prompt, prompt)
-    except Exception as e:
-        logger.warning(f"Gemini failed ({e}), falling back to Groq...")
+async def _call_llm(providers: list, system_prompt: str, prompt: str) -> dict:
+    """Try each provider in priority order until one succeeds."""
+    last_error = None
+    
+    for provider in providers:
         try:
-            response = await groq.generate_response(system_prompt, prompt)
-        except Exception as e2:
-            return {
-                "tool_calls": [],
-                "message": "⚠️ **Configuration Required**: Both AI providers failed. Please verify that your `GEMINI_API_KEY` or `GROQ_API_KEY` is set in the `.env` file."
-            }
+            response = await provider.generate_response(system_prompt, prompt)
+            logger.info(f"LLM response from {provider.name}")
+            break
+        except Exception as e:
+            logger.warning(f"{provider.name} failed ({e}), trying next provider...")
+            last_error = e
+            continue
+    else:
+        # All providers failed
+        return {
+            "tool_calls": [],
+            "message": (
+                "### AI Execution Failure\n\n"
+                f"All configured AI providers failed to execute your request. Last error details: `{last_error}`. "
+                "Please verify your API credentials in the **Settings** view."
+            )
+        }
 
     try:
         if "```json" in response:
