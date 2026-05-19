@@ -1,5 +1,6 @@
 import os
 import pytest
+import importlib
 from unittest.mock import AsyncMock, patch
 
 # Ensure simulation mode is tested
@@ -9,6 +10,8 @@ from plaxis_connection import connection_manager
 from agent import PlaxisAgentSwarm, _call_llm
 from tools.structures import create_plate
 from tools.phases import set_water_level
+from providers.base import LLMProvider
+from providers.ollama_provider import OllamaProvider
 
 @pytest.mark.asyncio
 async def test_no_api_keys_friendly_message():
@@ -79,3 +82,37 @@ def test_set_water_level_fallback():
             set_water_level("Phase_Test", -5.5)
             # Verify fallback command
             mock_call.assert_called_with("set Phase_Test.WaterLevel -5.5", server='input')
+
+@pytest.mark.asyncio
+async def test_ollama_provider_implements_async_generate_response():
+    """Verify Ollama exposes the async provider interface used by the swarm."""
+    provider = OllamaProvider()
+
+    with patch.object(provider, "get_response", return_value='{"tool_calls":[],"message":"ok"}') as mock_get:
+        response = await provider.generate_response("system", "prompt")
+
+    assert response == '{"tool_calls":[],"message":"ok"}'
+    mock_get.assert_called_once_with("prompt", "system")
+    assert OllamaProvider.generate_response is not LLMProvider.generate_response
+
+def test_app_main_keeps_process_alive_after_successful_browser_open():
+    """Verify the keep-alive loop runs even when browser launch succeeds."""
+    import app
+
+    with patch.object(app, "_run_server") as mock_run_server, \
+         patch("threading.Thread") as mock_thread_cls, \
+         patch("webbrowser.open", return_value=True) as mock_browser_open, \
+         patch("time.sleep", side_effect=[None, KeyboardInterrupt]), \
+         patch("sys.exit", side_effect=SystemExit) as mock_exit:
+        mock_thread = mock_thread_cls.return_value
+        mock_thread.start.return_value = None
+
+        with pytest.raises(SystemExit):
+            app_globals = app.__dict__
+            app_globals["__name__"] = "__main__"
+            exec(compile(open(app.__file__, "r", encoding="utf-8").read(), app.__file__, "exec"), app_globals)
+
+    mock_thread_cls.assert_called_once()
+    mock_thread.start.assert_called_once()
+    mock_browser_open.assert_called_once_with("http://127.0.0.1:8501")
+    mock_exit.assert_called_once_with(0)

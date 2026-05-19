@@ -460,17 +460,17 @@ if __name__ == "__main__":
         logger.info("Launched PlaxisAI in default web browser.")
     except Exception as e:
         logger.warning(f"Could not open browser automatically: {e}")
-        
-        # Keep the main thread alive since uvicorn is running as a daemon thread
-        print("\n====================================================")
-        print("   PlaxisAI is running at: http://127.0.0.1:8501")
-        print("   Press CTRL+C in this terminal to shut down.")
-        print("====================================================\n")
-        
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            logger.info("Shutting down PlaxisAI...")
-            sys.exit(0)
+
+    # Keep the main thread alive since uvicorn is running as a daemon thread.
+    print("\n====================================================")
+    print("   PlaxisAI is running at: http://127.0.0.1:8501")
+    print("   Press CTRL+C in this terminal to shut down.")
+    print("====================================================\n")
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Shutting down PlaxisAI...")
+        sys.exit(0)
 

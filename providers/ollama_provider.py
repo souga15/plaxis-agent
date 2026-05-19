@@ -1,6 +1,7 @@
 import httpx
 import json
 import logging
+import asyncio
 from typing import List, Dict, Any
 from .base import LLMProvider
 
@@ -93,3 +94,11 @@ class OllamaProvider(LLMProvider):
         except httpx.HTTPError as e:
             logger.error(f"Ollama API error: {e}")
             raise Exception(f"Failed to communicate with Local Ollama instance: {str(e)}")
+
+    async def generate_response(self, system_prompt: str, user_prompt: str):
+        await self._wait_for_cooldown()
+        return await asyncio.to_thread(
+            self.get_response,
+            user_prompt,
+            system_prompt,
+        )
