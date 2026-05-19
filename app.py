@@ -97,6 +97,7 @@ async def get_settings():
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     groq_key = os.getenv("GROQ_API_KEY", "")
     claude_key = os.getenv("ANTHROPIC_API_KEY", "")
+    ollama_enabled = os.getenv("OLLAMA_ENABLED", "false").lower() == "true"
     
     def mask(key: str) -> str:
         if not key or key.startswith("your_"):
@@ -114,9 +115,88 @@ async def get_settings():
         "gemini_configured": bool(gemini_key and not gemini_key.startswith("your_")),
         "groq_configured": bool(groq_key and not groq_key.startswith("your_")),
         "claude_configured": bool(claude_key and not claude_key.startswith("your_")),
+        "ollama_enabled": ollama_enabled,
         "active_providers": active_providers,
         "simulation_mode": os.getenv("PLAXIS_SIMULATION_MODE", "false").lower() == "true",
     }
+
+@app.post("/api/settings/update")
+async def update_settings(request: Request):
+    data = await request.json()
+    ollama_enabled = data.get("ollama_enabled")
+    if ollama_enabled is not None:
+        os.environ["OLLAMA_ENABLED"] = "true" if ollama_enabled else "false"
+        agent.reload_providers()
+        return {"success": True}
+    return {"success": False}
+
+# ── Local AI (Ollama) Endpoints ──────────────────────────
+import httpx
+import tempfile
+import subprocess
+from fastapi.responses import StreamingResponse
+
+@app.get("/api/ollama/status")
+async def get_ollama_status():
+    installed = False
+    running = False
+    models = []
+    
+    # Check if command exists
+    import shutil
+    if shutil.which("ollama"):
+        installed = True
+        
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get("http://localhost:11434/api/tags")
+            if resp.status_code == 200:
+                running = True
+                installed = True
+                models = [m.get("name") for m in resp.json().get("models", [])]
+    except Exception:
+        pass
+        
+    return {
+        "installed": installed,
+        "running": running,
+        "models": models,
+        "gemma_installed": any("gemma:2b" in m or "gemma" in m for m in models)
+    }
+
+@app.post("/api/ollama/install")
+async def install_ollama():
+    import urllib.request
+    try:
+        installer_path = os.path.join(tempfile.gettempdir(), "OllamaSetup.exe")
+        # Download if not exists
+        if not os.path.exists(installer_path):
+            logger.info("Downloading OllamaSetup.exe...")
+            urllib.request.urlretrieve("https://ollama.com/download/OllamaSetup.exe", installer_path)
+            
+        # Launch installer silently
+        logger.info(f"Launching installer: {installer_path}")
+        # Using startfile to trigger UAC appropriately if needed on Windows
+        os.startfile(installer_path)
+        return {"success": True, "message": "Installer launched. Please complete the setup."}
+    except Exception as e:
+        logger.error(f"Failed to install Ollama: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.post("/api/ollama/pull")
+async def pull_ollama_model():
+    """Stream model pulling progress to the client."""
+    async def event_generator():
+        try:
+            async with httpx.AsyncClient(timeout=None) as client:
+                async with client.stream("POST", "http://localhost:11434/api/pull", json={"name": "gemma:2b"}) as response:
+                    async for line in response.aiter_lines():
+                        if line:
+                            yield f"data: {line}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/api/model/screenshot")
 async def get_model_screenshot():
@@ -375,30 +455,11 @@ if __name__ == "__main__":
     time.sleep(1.5)
 
     try:
-        logger.info("Attempting to launch native desktop window (pywebview)...")
-        import webview
-
-        # Create native window
-        window = webview.create_window(
-            "PlaxisAI — Geotechnical Automation Agent",
-            "http://127.0.0.1:8501",
-            width=1280,
-            height=820,
-            min_size=(900, 600),
-            text_select=True,
-        )
-        webview.start()
-        logger.info("Native window closed. Exiting.")
-        sys.exit(0)
-
-    except Exception as e:
-        logger.warning(
-            f"Native desktop window unavailable ({e}).\n"
-            f"Falling back to default web browser mode..."
-        )
-        
-        # Open in default web browser
+        # Open in default web browser natively
         webbrowser.open("http://127.0.0.1:8501")
+        logger.info("Launched PlaxisAI in default web browser.")
+    except Exception as e:
+        logger.warning(f"Could not open browser automatically: {e}")
         
         # Keep the main thread alive since uvicorn is running as a daemon thread
         print("\n====================================================")

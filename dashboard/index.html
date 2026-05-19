@@ -736,6 +736,23 @@
         </div>
 
         <div class="settings-card">
+            <div class="card-title">Privacy First: Local AI (Gemma)</div>
+            <p class="hint" style="margin-bottom:12px;">Run a secure, offline, open-source AI directly on your machine. Data never leaves your PC.</p>
+            
+            <div id="ollama-ui-state">
+                <!-- Javascript will populate this based on /api/ollama/status -->
+                <p>Loading Local AI status...</p>
+            </div>
+            
+            <div id="ollama-progress-container" style="display:none; margin-top:14px;">
+                <div style="font-size: 0.8rem; margin-bottom: 6px; color: var(--muted);" id="ollama-progress-text">Downloading model...</div>
+                <div style="width: 100%; height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden;">
+                    <div id="ollama-progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.3s;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-card">
             <div class="card-title">Active AI Providers</div>
             <p class="hint" style="margin-bottom:10px;">The highest priority active provider will automatically be selected for calculation planning.</p>
             <div class="provider-list" id="provider-list"></div>
@@ -936,14 +953,22 @@ async function loadSettings() {
         // Show active providers
         const list = document.getElementById('provider-list');
         list.innerHTML = '';
-        const allProviders = ['Claude', 'Gemini', 'Groq'];
+        
+        // Add Ollama to the active providers list if it is enabled
+        const allProviders = ['Ollama (Local)', 'Claude', 'Gemini', 'Groq'];
+        const activeSet = new Set(data.active_providers);
+        
         allProviders.forEach(name => {
             const chip = document.createElement('div');
-            const isActive = data.active_providers.includes(name);
+            const isActive = activeSet.has(name);
             chip.className = 'provider-chip' + (isActive ? ' active' : '');
             chip.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:6px; background:${isActive ? 'var(--accent)' : 'var(--muted)'};"></span>` + name;
             list.appendChild(chip);
         });
+        
+        // Load Ollama status
+        loadOllamaStatus();
+        
     } catch (e) { console.error('Failed to load settings:', e); }
 }
 
@@ -983,6 +1008,143 @@ async function saveSettings() {
             showToast('Settings saved successfully. Active: ' + data.active_providers.join(', '));
         }
     } catch (e) { showToast('Failed to save settings'); }
+}
+
+async function loadOllamaStatus() {
+    try {
+        const res = await fetch('/api/ollama/status');
+        const data = await res.json();
+        const container = document.getElementById('ollama-ui-state');
+        
+        let html = '';
+        if (!data.installed) {
+            html = `
+                <div class="key-row" style="border:1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 8px; flex-direction:column; align-items:flex-start; gap: 8px;">
+                    <span style="font-size:0.85rem; color: var(--danger);">Ollama is not installed on this system.</span>
+                    <button class="btn-primary" onclick="installOllama()">Download & Install Ollama</button>
+                    <span class="hint">This will download the official Ollama Windows installer.</span>
+                </div>
+            `;
+        } else if (!data.running) {
+            html = `<p class="hint" style="color:var(--danger)">Ollama is installed but the background service is not running. Please start Ollama from your Start menu and refresh.</p>`;
+        } else if (!data.gemma_installed) {
+            html = `
+                <div class="key-row" style="border:1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 8px; flex-direction:column; align-items:flex-start; gap: 8px;">
+                    <span style="font-size:0.85rem; color: var(--muted);">Ollama is active, but the Gemma 2B model is missing.</span>
+                    <button class="btn-primary" onclick="pullGemmaModel()">Download Gemma 2B (~1.7 GB)</button>
+                </div>
+            `;
+        } else {
+            // Fetch enabled state from settings
+            const sRes = await fetch('/api/settings');
+            const sData = await sRes.json();
+            const isEnabled = sData.ollama_enabled;
+            
+            html = `
+                <div class="key-row" style="border:1px solid var(--success); padding: 12px; border-radius: 8px; margin-bottom: 8px; align-items:center; gap: 12px; background: rgba(74, 222, 128, 0.05);">
+                    <div style="flex:1;">
+                        <div style="font-size:0.85rem; color: var(--success); font-weight: 600; margin-bottom:4px;">Gemma 2B is Installed and Ready!</div>
+                        <div class="hint">All requests will be routed to your local GPU/CPU.</div>
+                    </div>
+                    <label class="switch" style="position:relative; display:inline-block; width:44px; height:24px;">
+                        <input type="checkbox" id="ollama-toggle" ${isEnabled ? 'checked' : ''} onchange="toggleOllama(this.checked)" style="opacity:0; width:0; height:0;">
+                        <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:${isEnabled ? 'var(--accent)' : 'var(--border)'}; transition:.4s; border-radius:34px;" class="slider"></span>
+                    </label>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+        
+        // Add minimal CSS for the slider toggle dynamically
+        if (!document.getElementById('slider-style')) {
+            const style = document.createElement('style');
+            style.id = 'slider-style';
+            style.innerHTML = `
+                .slider:before { position:absolute; content:""; height:16px; width:16px; left:4px; bottom:4px; background-color:white; transition:.4s; border-radius:50%; }
+                input:checked + .slider:before { transform: translateX(20px); }
+            `;
+            document.head.appendChild(style);
+        }
+    } catch (e) { console.error('Failed to load Ollama status', e); }
+}
+
+async function installOllama() {
+    const container = document.getElementById('ollama-ui-state');
+    container.innerHTML = `<p class="hint" style="color:var(--accent)">Downloading installer... Please check your taskbar for the Windows UAC shield icon and click Yes.</p>`;
+    try {
+        const res = await fetch('/api/ollama/install', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            container.innerHTML = `<p class="hint" style="color:var(--success)">Installer launched! Please complete the installation, start Ollama, and then <a href="#" onclick="loadOllamaStatus(); return false;" style="color:var(--accent)">refresh this panel</a>.</p>`;
+        } else {
+            container.innerHTML = `<p class="hint" style="color:var(--danger)">Install failed: ${data.message}</p>`;
+        }
+    } catch (e) {
+        container.innerHTML = `<p class="hint" style="color:var(--danger)">Error downloading installer.</p>`;
+    }
+}
+
+function pullGemmaModel() {
+    const progContainer = document.getElementById('ollama-progress-container');
+    const progBar = document.getElementById('ollama-progress-bar');
+    const progText = document.getElementById('ollama-progress-text');
+    const stateContainer = document.getElementById('ollama-ui-state');
+    
+    stateContainer.style.display = 'none';
+    progContainer.style.display = 'block';
+    
+    const source = new EventSource('/api/ollama/pull');
+    source.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.error) {
+                progText.textContent = "Error: " + data.error;
+                source.close();
+                return;
+            }
+            if (data.status) {
+                let statusStr = data.status;
+                if (data.total && data.completed) {
+                    const pct = Math.round((data.completed / data.total) * 100);
+                    progBar.style.width = pct + '%';
+                    const mbDone = (data.completed / 1024 / 1024).toFixed(1);
+                    const mbTotal = (data.total / 1024 / 1024).toFixed(1);
+                    statusStr = `${data.status} (${pct}%) - ${mbDone}MB / ${mbTotal}MB`;
+                }
+                progText.textContent = statusStr;
+                
+                if (data.status === "success") {
+                    source.close();
+                    progContainer.style.display = 'none';
+                    stateContainer.style.display = 'block';
+                    loadOllamaStatus(); // Refresh UI
+                }
+            }
+        } catch (e) { console.error("Parse error in stream", e); }
+    };
+    source.onerror = function(err) {
+        console.error("EventSource failed", err);
+        progText.textContent = "Download connection closed.";
+        source.close();
+        setTimeout(loadOllamaStatus, 2000);
+    };
+}
+
+async function toggleOllama(enabled) {
+    try {
+        const res = await fetch('/api/settings/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ollama_enabled: enabled})
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Local AI (Gemma 2B) is now ' + (enabled ? 'enabled' : 'disabled'));
+            loadSettings(); // update active provider chips
+            const slider = document.querySelector('.slider');
+            if (slider) slider.style.backgroundColor = enabled ? 'var(--accent)' : 'var(--border)';
+        }
+    } catch (e) { showToast('Failed to toggle Local AI'); }
 }
 
 function showToast(msg) {

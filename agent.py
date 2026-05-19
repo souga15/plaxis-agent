@@ -127,25 +127,34 @@ class PlaxisAgentSwarm:
 
     def _init_providers(self):
         """Initialize all available LLM providers in priority order."""
+        import os
+        from providers.ollama_provider import OllamaProvider
         providers = []
         
+        # Local Ollama
+        if os.getenv("OLLAMA_ENABLED", "false").lower() == "true":
+            ollama = OllamaProvider(model_name="gemma:2b")
+            if ollama.is_configured():
+                providers.append(ollama)
+                logger.info("Ollama local provider initialized (priority 1)")
+
         # Claude first (best tool-calling quality)
         claude = ClaudeProvider()
         if claude.api_key:
             providers.append(claude)
-            logger.info("Claude provider initialized (priority 1)")
+            logger.info(f"Claude provider initialized (priority {len(providers)+1})")
         
         # Gemini second (free, good quality)
         gemini = GeminiProvider()
         if gemini.client:
             providers.append(gemini)
-            logger.info("Gemini provider initialized (priority 2)")
+            logger.info(f"Gemini provider initialized (priority {len(providers)+1})")
         
         # Groq third (free, fast)
         groq = GroqProvider()
         if groq.api_key:
             providers.append(groq)
-            logger.info("Groq provider initialized (priority 3)")
+            logger.info(f"Groq provider initialized (priority {len(providers)+1})")
         
         if not providers:
             logger.warning("No AI providers configured! Add API credentials in Settings.")

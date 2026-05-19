@@ -90,7 +90,7 @@ Install dependencies and launch the server:
 pip install -r requirements.txt
 python app.py
 ```
-Open **`http://localhost:8000`** in your browser.
+Open **`http://localhost:8501`** in your browser.
 
 ---
 
