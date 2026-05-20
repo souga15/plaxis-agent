@@ -173,7 +173,6 @@ class PlaxisConnection:
         compatibility_markers = [
             "requested attribute",
             "is not present",
-            "is not recognized as a global command",
             "incorrect or unspecified action",
             "call_and_handle_command",
         ]
@@ -181,6 +180,14 @@ class PlaxisConnection:
             return (
                 f"Incompatible or unsupported PLAXIS scripting command/interface: {message}. "
                 f"{COMPATIBILITY_ERROR_HINT}"
+            )
+
+        if "is not recognized as a global command" in lowered:
+            return (
+                f"PLAXIS rejected the command: {message}. This can happen when no project is open yet "
+                f"(PLAXIS is still on the Start Page), or when the connected PLAXIS scripting API does not "
+                f"support the command syntax this agent used. Verify a project is open first, then confirm "
+                f"your PLAXIS version and official 'plxscripting' package match."
             )
 
         return None

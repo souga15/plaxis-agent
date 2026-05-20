@@ -12,6 +12,7 @@ from tools.structures import create_plate
 from tools.phases import set_water_level
 from providers.base import LLMProvider
 from providers.ollama_provider import OllamaProvider
+from tool_dispatcher import dispatch_tool_calls
 
 @pytest.mark.asyncio
 async def test_no_api_keys_friendly_message():
@@ -116,3 +117,44 @@ def test_app_main_keeps_process_alive_after_successful_browser_open():
     mock_thread.start.assert_called_once()
     mock_browser_open.assert_called_once_with("http://127.0.0.1:8501")
     mock_exit.assert_called_once_with(0)
+
+def test_dispatch_auto_bootstraps_new_project_after_blank_session_failure():
+    """Verify geometry commands retry once after creating a project automatically."""
+    call_order = []
+
+    def fake_new_project():
+        call_order.append("new_project")
+        return "Created new project."
+
+    def fake_create_soil_material(**kwargs):
+        call_order.append("create_soil_material")
+        if call_order.count("create_soil_material") == 1:
+            raise Exception(
+                'Unsuccessful command: Command "soilmat" is not recognized as a global command. '
+                "Check the spelling or try specifying a target object."
+            )
+        return "Created soil material."
+
+    with patch.dict(
+        "tool_dispatcher.TOOL_REGISTRY",
+        {
+            "new_project": fake_new_project,
+            "create_soil_material": fake_create_soil_material,
+        },
+        clear=False,
+    ):
+        results = dispatch_tool_calls([
+            {"name": "create_soil_material", "args": {"name": "Clay_Layer", "model": "Mohr-Coulomb", "params": {}}}
+        ])
+
+    assert [r["tool"] for r in results] == ["new_project", "create_soil_material"]
+    assert all(r["success"] for r in results)
+    assert call_order == ["create_soil_material", "new_project", "create_soil_material"]
+
+def test_classify_runtime_issue_mentions_blank_project_for_global_command_errors():
+    """Verify command-not-recognized errors mention the no-project-open case."""
+    message = connection_manager.classify_runtime_issue(
+        Exception('Unsuccessful command: Command "soilmat" is not recognized as a global command.')
+    )
+    assert message is not None
+    assert "no project is open yet" in message.lower()

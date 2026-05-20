@@ -9,6 +9,23 @@ from tools import geometry, materials, structures, mesh, phases, calculate, resu
 
 logger = logging.getLogger(__name__)
 
+PROJECT_BOOTSTRAP_TOOLS = {"new_project", "open_project"}
+PROJECT_DEPENDENT_TOOLS = {
+    "create_borehole",
+    "create_surface",
+    "create_volume",
+    "extrude",
+    "create_soil_material",
+    "create_plate_material",
+    "create_anchor_material",
+    "assign_material",
+    "create_plate",
+    "create_anchor",
+    "create_pile",
+    "create_interface",
+    "create_load",
+}
+
 # Registry: tool name -> callable
 TOOL_REGISTRY = {
     # Geometry
@@ -63,7 +80,49 @@ TOOL_REGISTRY = {
 }
 
 
-def dispatch_tool_calls(tool_calls: list) -> list:
+def _execute_tool_call(call: dict) -> dict:
+    tool_name = call.get("name", "unknown")
+    tool_args = call.get("args", {})
+
+    if tool_name not in TOOL_REGISTRY:
+        return {
+            "tool": tool_name,
+            "success": False,
+            "result": f"Unknown tool '{tool_name}'. Available: {list(TOOL_REGISTRY.keys())}"
+        }
+
+    try:
+        func = TOOL_REGISTRY[tool_name]
+        result = func(**tool_args)
+        logger.info(f"Tool '{tool_name}' executed successfully: {result}")
+        return {
+            "tool": tool_name,
+            "success": True,
+            "result": str(result),
+            "raw_result": result
+        }
+    except Exception as e:
+        logger.error(f"Tool '{tool_name}' failed: {e}")
+        compatibility_message = connection_manager.classify_runtime_issue(e)
+        return {
+            "tool": tool_name,
+            "success": False,
+            "result": compatibility_message or f"Error: {str(e)}",
+            "compatibility_issue": compatibility_message is not None,
+        }
+
+
+def _should_retry_with_new_project(tool_calls: list, failed_call: dict, failure_result: dict) -> bool:
+    if any(call.get("name") in PROJECT_BOOTSTRAP_TOOLS for call in tool_calls):
+        return False
+    if failed_call.get("name") not in PROJECT_DEPENDENT_TOOLS:
+        return False
+
+    result_text = failure_result.get("result", "").lower()
+    return "is not recognized as a global command" in result_text
+
+
+def dispatch_tool_calls(tool_calls: list, allow_project_bootstrap: bool = True) -> list:
     """
     Execute a list of tool calls from the LLM and return results.
     
@@ -77,35 +136,21 @@ def dispatch_tool_calls(tool_calls: list) -> list:
     execution_results = []
 
     for call in tool_calls:
-        tool_name = call.get("name", "unknown")
-        tool_args = call.get("args", {})
+        result = _execute_tool_call(call)
+        execution_results.append(result)
 
-        if tool_name not in TOOL_REGISTRY:
-            execution_results.append({
-                "tool": tool_name,
-                "success": False,
-                "result": f"Unknown tool '{tool_name}'. Available: {list(TOOL_REGISTRY.keys())}"
-            })
-            continue
-
-        try:
-            func = TOOL_REGISTRY[tool_name]
-            result = func(**tool_args)
-            logger.info(f"Tool '{tool_name}' executed successfully: {result}")
-            execution_results.append({
-                "tool": tool_name,
-                "success": True,
-                "result": str(result),
-                "raw_result": result
-            })
-        except Exception as e:
-            logger.error(f"Tool '{tool_name}' failed: {e}")
-            compatibility_message = connection_manager.classify_runtime_issue(e)
-            execution_results.append({
-                "tool": tool_name,
-                "success": False,
-                "result": compatibility_message or f"Error: {str(e)}",
-                "compatibility_issue": compatibility_message is not None,
-            })
+        if allow_project_bootstrap and not result["success"] and _should_retry_with_new_project(tool_calls, call, result):
+            logger.warning(
+                "Detected PLAXIS start-page style failure for '%s'. "
+                "Attempting automatic new_project() bootstrap and retrying the batch once.",
+                call.get("name", "unknown"),
+            )
+            project_result = _execute_tool_call({"name": "new_project", "args": {}})
+            if project_result["success"]:
+                project_result["result"] += " Auto-recovery: started a new project after blank-session command failure."
+                return [project_result] + dispatch_tool_calls(tool_calls, allow_project_bootstrap=False)
+            project_result["result"] += " Auto-recovery failed while trying to create a project automatically."
+            execution_results.append(project_result)
+            return execution_results
 
     return execution_results
