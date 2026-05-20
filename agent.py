@@ -1,6 +1,6 @@
 import json
 import logging
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from typing import List, Dict, Any
 from providers.gemini import GeminiProvider
 from providers.groq import GroqProvider
@@ -11,6 +11,20 @@ logger = logging.getLogger(__name__)
 class ToolCall(BaseModel):
     name: str = Field(..., description="Name of the tool to execute")
     args: Dict[str, Any] = Field(default_factory=dict, description="Arguments for the tool")
+
+    @model_validator(mode='before')
+    @classmethod
+    def extract_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if 'name' not in data:
+                if 'tool_name' in data:
+                    data['name'] = data['tool_name']
+                elif 'tool_code' in data:
+                    data['name'] = data['tool_code'].split('(')[0]
+            if 'args' not in data:
+                if 'parameters' in data:
+                    data['args'] = data['parameters']
+        return data
 
 class AgentResponse(BaseModel):
     tool_calls: List[ToolCall] = Field(default_factory=list)
@@ -48,6 +62,13 @@ You only focus on geometry, boreholes, soils, and physical objects.
 
 === RESPONSE FORMAT ===
 You MUST respond with a valid JSON block containing "tool_calls" and "message".
+Example:
+{
+  "tool_calls": [
+    {"name": "create_soil_material", "args": {"name": "Clay_Layer", "model": "Mohr-Coulomb", "params": {"gammaUnsat": 16}}}
+  ],
+  "message": "Created material"
+}
 If the design is already created or no geometric changes are needed, return an empty tool_calls list.
 Always create materials before assigning them.
 """
@@ -84,6 +105,13 @@ Your job is to read the active design state, create mesh parameters, define calc
 
 === RESPONSE FORMAT ===
 You MUST respond with a valid JSON block containing "tool_calls" and "message".
+Example:
+{
+  "tool_calls": [
+    {"name": "generate_mesh", "args": {"fineness": 0.5}}
+  ],
+  "message": "Generated mesh"
+}
 Remember to generate the mesh before running the calculation!
 """
 
@@ -109,6 +137,13 @@ Your job is to query phase results (stresses, displacements, structural envelope
 
 === RESPONSE FORMAT ===
 You MUST respond with a valid JSON block containing "tool_calls" and "message".
+Example:
+{
+  "tool_calls": [
+    {"name": "get_safety_factor", "args": {"phase_name": "Phase_1"}}
+  ],
+  "message": "Checked safety"
+}
 Make sure to call `get_safety_factor` for any safety phase (e.g. Phase_2 or Phase_3) to evaluate Sum-Msf!
 """
 
