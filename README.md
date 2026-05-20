@@ -72,6 +72,8 @@ The system coordinates specialized sub-agents, live remote scripting RPC endpoin
 
 ## Getting Started
 
+For a non-technical setup guide, see [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md).
+
 ### 1. Configure Credentials
 Create a `.env` file in the root directory (or use the Settings tab inside the app):
 ```env
@@ -91,6 +93,14 @@ pip install -r requirements.txt
 python app.py
 ```
 Open **`http://localhost:8501`** in your browser.
+
+### 4. Simplest Windows Workflow
+
+If you are sharing this with someone who does not code:
+
+1. Build `dist\PlaxisAI.exe`
+2. Share the `.exe`
+3. Ask them to follow [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md)
 
 ---
 

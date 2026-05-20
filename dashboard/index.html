@@ -93,6 +93,50 @@
             margin-bottom: 6px;
         }
         .quick-btn:hover { border-color: var(--accent); background: #1f2535; }
+        .startup-card {
+            border: 1px solid var(--border);
+            background: var(--panel2);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .startup-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        .startup-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .startup-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.76rem;
+            line-height: 1.4;
+            color: var(--muted);
+        }
+        .startup-num {
+            min-width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 201, 177, 0.12);
+            color: var(--accent);
+            font-size: 0.68rem;
+            font-weight: 700;
+            margin-top: 1px;
+        }
+        .startup-note {
+            margin-top: 10px;
+            font-size: 0.72rem;
+            line-height: 1.45;
+            color: var(--muted);
+        }
 
         /* ── MAIN AREA ── */
         .main {
@@ -511,6 +555,22 @@
         <button class="quick-btn" onclick="quickSend('Run calculation')">Run Calculation</button>
         <button class="quick-btn" onclick="quickSend('Get safety factor for Safety_Phase')">Safety Factor</button>
         <button class="quick-btn" onclick="quickSend('Show mesh quality')">Mesh Quality</button>
+    </div>
+    <div>
+        <div class="section-title">First Run</div>
+        <div class="startup-card">
+            <div class="startup-title">Before you send commands</div>
+            <div class="startup-list">
+                <div class="startup-step"><span class="startup-num">1</span><span>Open <strong>PLAXIS 3D</strong>.</span></div>
+                <div class="startup-step"><span class="startup-num">2</span><span>Go to <strong>Expert -> Configure remote scripting server</strong>.</span></div>
+                <div class="startup-step"><span class="startup-num">3</span><span>Set <strong>Input 10000</strong>, <strong>Output 10001</strong>, password blank.</span></div>
+                <div class="startup-step"><span class="startup-num">4</span><span>Open the <strong>Settings</strong> tab and save one AI API key.</span></div>
+                <div class="startup-step"><span class="startup-num">5</span><span>Start with <strong>Start new project</strong>.</span></div>
+            </div>
+            <div class="startup-note">
+                If Input and Output stay red, the app is not connected to PLAXIS yet.
+            </div>
+        </div>
     </div>
 </div>
 
