@@ -8,6 +8,23 @@ from providers.claude import ClaudeProvider
 
 logger = logging.getLogger(__name__)
 
+
+def _project_session_blocked(results: list[dict]) -> bool:
+    """Detect failures that mean PLAXIS does not have a usable open project/session yet."""
+    for result in results:
+        if result.get("success"):
+            continue
+        text = str(result.get("result", "")).lower()
+        if result.get("tool") in {"new_project", "open_project"}:
+            return True
+        if "create or open a project manually" in text:
+            return True
+        if "no project is open yet" in text:
+            return True
+        if "start page" in text:
+            return True
+    return False
+
 class ToolCall(BaseModel):
     name: str = Field(..., description="Name of the tool to execute")
     args: Dict[str, Any] = Field(default_factory=dict, description="Arguments for the tool")
@@ -246,6 +263,16 @@ class PlaxisAgentSwarm:
                 exec_log = "\n".join([f"  - [Success] `{r['tool']}`: {r['result']}" if r["success"] else f"  - [Failure] `{r['tool']}`: {r['result']}" for r in geo_results])
                 swarm_logs.append(f"**Geometry Execution Status:**\n{exec_log}")
                 geo_log_str = "\n".join([f"- {r['tool']}: Success={r['success']}, Output={r['result']}" for r in geo_results])
+                if _project_session_blocked(geo_results):
+                    swarm_logs.append(
+                        "### Project Setup Required\n"
+                        "PLAXIS rejected project/bootstrap commands, so this session does not currently have a usable open project. "
+                        "Please create or open a project manually inside PLAXIS 3D, keep Remote Scripting enabled, and then re-issue your request."
+                    )
+                    return {
+                        "tool_calls": [],
+                        "message": "\n\n".join(swarm_logs)
+                    }
             else:
                 geo_log_str = "No geometry updates required."
                 swarm_logs.append("*No geometry actions proposed.*")

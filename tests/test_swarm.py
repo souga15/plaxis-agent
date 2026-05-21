@@ -158,3 +158,34 @@ def test_classify_runtime_issue_mentions_blank_project_for_global_command_errors
     )
     assert message is not None
     assert "no project is open yet" in message.lower()
+
+@pytest.mark.asyncio
+async def test_swarm_stops_after_project_setup_failure():
+    """Verify the swarm stops after geometry if PLAXIS cannot create/open a project."""
+    swarm = PlaxisAgentSwarm()
+    swarm.providers = [object()]
+    swarm.geometry_agent.providers = swarm.providers
+    swarm.calculation_agent.providers = swarm.providers
+    swarm.validation_agent.providers = swarm.providers
+
+    geometry_response = {
+        "tool_calls": [{"name": "new_project", "args": {}}],
+        "message": "Starting a new design project."
+    }
+
+    with patch.object(swarm.geometry_agent, "execute", AsyncMock(return_value=geometry_response)), \
+         patch("tool_dispatcher.dispatch_tool_calls", return_value=[
+             {
+                 "tool": "new_project",
+                 "success": False,
+                 "result": "Could not create new project automatically. Please create or open a project manually in Plaxis 3D first."
+             }
+         ]), \
+         patch.object(swarm.calculation_agent, "execute", AsyncMock()) as calc_execute, \
+         patch.object(swarm.validation_agent, "execute", AsyncMock()) as val_execute:
+        response = await swarm.process_request("Start new project")
+
+    assert "Project Setup Required" in response["message"]
+    assert "Please create or open a project manually inside PLAXIS 3D" in response["message"]
+    calc_execute.assert_not_called()
+    val_execute.assert_not_called()
