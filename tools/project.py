@@ -47,13 +47,16 @@ def new_project():
         logger.error(msg)
         raise RuntimeError(msg)
 
-def open_project(path: str):
+def open_project(path: str = None, filename: str = None):
     """
     Open an existing .p3d file.
     """
     s, g = connection_manager.get_input()
-    s.open(path)
-    return f"Opened project at {path}."
+    project_path = path or filename
+    if not project_path:
+        raise ValueError("open_project requires 'path' or 'filename'.")
+    s.open(project_path)
+    return f"Opened project at {project_path}."
 
 def save_project(path: str):
     """

@@ -9,7 +9,9 @@ os.environ["PLAXIS_SIMULATION_MODE"] = "true"
 from plaxis_connection import connection_manager
 from agent import PlaxisAgentSwarm, _call_llm
 from tools.structures import create_plate
+from tools.structures import create_load
 from tools.phases import set_water_level
+from tools.project import open_project
 from providers.base import LLMProvider
 from providers.ollama_provider import OllamaProvider
 from tool_dispatcher import dispatch_tool_calls
@@ -189,3 +191,36 @@ async def test_swarm_stops_after_project_setup_failure():
     assert "Please create or open a project manually inside PLAXIS 3D" in response["message"]
     calc_execute.assert_not_called()
     val_execute.assert_not_called()
+
+def test_open_project_accepts_filename_alias():
+    """Verify open_project accepts both path and filename tool arg shapes."""
+    connection_manager.connect()
+
+    with patch.object(connection_manager, "get_input") as mock_get_input:
+        mock_server = type("MockServer", (), {"open": lambda self, p: None})()
+        mock_get_input.return_value = (mock_server, object())
+        result = open_project(filename=r"C:\temp\demo.p3d")
+
+    assert result == r"Opened project at C:\temp\demo.p3d."
+
+def test_create_load_accepts_pointload_alias():
+    """Verify pointload alias routes to the point-load API path."""
+    connection_manager.connect()
+
+    class LoadObj:
+        def __init__(self):
+            self.qx_start = None
+            self.qy_start = None
+            self.qz_start = None
+
+    class InputObj:
+        def gotostructures(self):
+            return None
+
+        def pointload(self, *args):
+            return LoadObj()
+
+    with patch.object(connection_manager, "get_input", return_value=(object(), InputObj())):
+        result = create_load("pointload", [1.0, 2.0], [10.0, 20.0, 30.0])
+
+    assert "Created pointload load" in result

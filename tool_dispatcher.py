@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 PROJECT_BOOTSTRAP_TOOLS = {"new_project", "open_project"}
 PROJECT_DEPENDENT_TOOLS = {
     "create_borehole",
+    "create_polygon",
+    "create_line",
     "create_surface",
     "create_volume",
     "extrude",
@@ -30,6 +32,8 @@ PROJECT_DEPENDENT_TOOLS = {
 TOOL_REGISTRY = {
     # Geometry
     "create_borehole": geometry.create_borehole,
+    "create_polygon": geometry.create_polygon,
+    "create_line": geometry.create_line,
     "create_surface": geometry.create_surface,
     "create_volume": geometry.create_volume,
     "extrude": geometry.extrude,

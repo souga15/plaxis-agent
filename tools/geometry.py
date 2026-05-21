@@ -205,3 +205,53 @@ def find_object_by_coordinates(x: float, y: float, z: float, collection: str = "
     obj = connection_manager.find_object_by_coordinates(x, y, z, collection)
     obj_name = connection_manager._safe_attr(obj, "Name") or "Unknown"
     return f"Found object at ({x}, {y}, {z}) in {collection}: {obj_name}"
+
+def create_polygon(points: list):
+    """
+    Create a 2D soil polygon from a list of coordinates.
+
+    Args:
+        points (list): Flat list of coordinates [x1,y1, x2,y2, ...] or nested [[x1,y1], [x2,y2], ...].
+    """
+    s, g = connection_manager.get_input()
+    _goto_structures_mode(g)
+
+    if points and isinstance(points[0], (list, tuple)):
+        flat = []
+        for p in points:
+            flat.extend(p)
+        points = flat
+
+    try:
+        poly = g.polygon(*points)
+    except Exception as e:
+        logger.warning(f"Wrapper polygon() unavailable, falling back to native command: {e}")
+        connection_manager.call_command("polygon " + " ".join(str(p) for p in points), server="input")
+        poly = g.Polygons[-1]
+    name_val = poly.Name.value if hasattr(poly, 'Name') and hasattr(poly.Name, 'value') else str(poly)
+    return f"Created 2D polygon with {len(points) // 2} points: {name_val}"
+
+def create_line(points: list):
+    """
+    Create a 2D geometric line.
+
+    Args:
+        points (list): Flat list [x1,y1, x2,y2, ...] or nested [[x1,y1], [x2,y2], ...].
+    """
+    s, g = connection_manager.get_input()
+    _goto_structures_mode(g)
+
+    if points and isinstance(points[0], (list, tuple)):
+        flat = []
+        for p in points:
+            flat.extend(p)
+        points = flat
+
+    try:
+        line = g.line(*points)
+    except Exception as e:
+        logger.warning(f"Wrapper line() unavailable, falling back to native command: {e}")
+        connection_manager.call_command("line " + " ".join(str(p) for p in points), server="input")
+        line = g.Lines[-1]
+    name_val = line.Name.value if hasattr(line, 'Name') and hasattr(line.Name, 'value') else str(line)
+    return f"Created 2D line with {len(points) // 2} points: {name_val}"

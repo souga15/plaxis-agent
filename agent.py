@@ -59,13 +59,16 @@ IMPORTANT: If you are starting a brand new design from scratch, you MUST call ne
 
 === AVAILABLE GEOMETRY & MATERIAL TOOLS ===
 - new_project()
-- open_project(filename: str)
+- open_project(path: str)
 - create_borehole(x: float, y: float, layers: list)
     layers = [{"top": 0, "bottom": -5}, {"top": -5, "bottom": -15}]
-- create_surface(points: list)
+- create_surface(points: list) [3D ONLY]
     points = [x1,y1,z1, x2,y2,z2, ...] or [[x1,y1,z1], [x2,y2,z2], ...]
-- create_volume(points: list)  — ONLY takes 'points', no other arguments.
-- extrude(object_name: str, direction: list, length: float)
+- create_volume(points: list) [3D ONLY] — ONLY takes 'points', no other arguments.
+- extrude(object_name: str, direction: list, length: float) [3D ONLY]
+- create_polygon(points: list) [2D ONLY]
+    points = [x1,y1, x2,y2, ...]
+- create_line(points: list) [2D ONLY]
 - find_object_by_coordinates(x: float, y: float, z: float, collection: str)
 - create_soil_material(name: str, model: str, params: dict)
     model: "Mohr-Coulomb", "Hardening Soil", "Soft Soil", "Linear Elastic"
@@ -74,11 +77,11 @@ IMPORTANT: If you are starting a brand new design from scratch, you MUST call ne
     params: {"d": 0.5, "E1": 30e6, "nu12": 0.15, "w": 12.0}
 - create_anchor_material(name: str, params: dict)
 - assign_material(object_name: str, material_name: str)
-- create_plate(points: list)
-- create_anchor(point1: list, point2: list)
-- create_pile(point: list, depth: float)
+- create_plate(points: list) (2D uses 4 coordinates: [x1,y1,x2,y2])
+- create_anchor(point1: list, point2: list) (2D uses [x,y])
+- create_pile(point: list, depth: float) (2D uses [x,y])
 - create_interface(object_name: str)
-- create_load(load_type: str, points: list, value: list)
+- create_load(load_type: str, points: list, value: list) (load_type: 'surface' [3D], 'line', 'point' or 'pointload' [2D])
 
 === RESPONSE FORMAT ===
 You MUST respond with a valid JSON block containing "tool_calls" and "message".
