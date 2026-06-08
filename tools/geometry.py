@@ -32,30 +32,23 @@ def _create_borehole_object(g, x: float, y: float):
     """
     Create a borehole using the Python wrapper when available, otherwise
     fall back to the native PLAXIS command line syntax.
+
+    NOTE (verified from Plaxis CLI recording):
+      - `borehole x y z` (3 args) raises "Invalid parameters" in Plaxis 3D.
+      - Only the 2-argument form `borehole x y` is valid.
     """
     _goto_soil_mode(g)
 
-    try:
-        return g.borehole(x, y, 0.0)
-    except Exception as e_xyz:
-        logger.warning(f"Wrapper borehole(x, y, z) unavailable, trying 2D-style signature: {e_xyz}")
-
+    # Primary: Python wrapper (2-arg form only)
     try:
         return g.borehole(x, y)
     except Exception as e_xy:
-        logger.warning(f"Wrapper borehole(x, y) unavailable, trying command fallback: {e_xy}")
+        logger.warning(f"Wrapper borehole(x, y) unavailable, trying native command: {e_xy}")
 
-    try:
-        connection_manager.call_command(f"borehole {x} {y} 0", server="input")
-    except Exception as e_cmd_xyz:
-        logger.warning(f"Native command 'borehole {x} {y} 0' failed, trying 2-argument form: {e_cmd_xyz}")
-        try:
-            connection_manager.call_command(f"borehole {x} {y}", server="input")
-        except Exception as e_cmd_xy:
-            logger.warning(f"Native command 'borehole {x} {y}' failed, trying single-coordinate form: {e_cmd_xy}")
-            connection_manager.call_command(f"borehole {x}", server="input")
+    # Fallback: native command (2-arg form — 3-arg form is invalid in Plaxis 3D)
+    connection_manager.call_command(f"borehole {x} {y}", server="input")
 
-    # After a native command call, re-read the latest borehole from the model.
+    # Re-read the latest borehole from the model after a native command call.
     return g.Boreholes[-1]
 
 
@@ -74,42 +67,55 @@ def create_borehole(x: float, y: float, layers: list):
     Args:
         x (float): x-coordinate.
         y (float): y-coordinate.
-        layers (list): List of dicts, each with 'top' and 'bottom' depth values,
-                       and optional 'material' name.
+        layers (list): List of dicts, each with 'top' and 'bottom' depth values.
                        Example: [{"top": 0, "bottom": -5}, {"top": -5, "bottom": -15}]
+
+    Notes (verified from Plaxis 3D CLI recording):
+      - Soil layers are GLOBAL in Plaxis 3D, not per-borehole.
+      - Zones[0].Top is READ-ONLY — only Bottom can be written.
+      - The top of each layer is automatically set by Plaxis from the previous layer's bottom.
+      - Only the BOTTOM depth of each layer should be set.
+      - Use the native `set Soillayer_N.Zones[0].Bottom <value>` command as the primary path.
     """
     s, g = connection_manager.get_input()
     bh = _create_borehole_object(g, x, y)
 
-    # Soil layers in Plaxis 3D are GLOBAL, not per-borehole.
-    # The borehole defines the depth/position of each global layer at that (x,y).
-    # First, ensure enough global soil layers exist:
+    # Ensure enough global soil layers exist
     existing_layers = len(g.Soillayers)
     for i in range(existing_layers, len(layers)):
-        _add_soil_layer(g, 0)  # Add a new global soil layer with 0 thickness (will be set below)
+        _add_soil_layer(g, 0)
 
-    # Set the top/bottom for each layer at this borehole
+    # Set only the Bottom depth for each layer (Top is read-only in Plaxis 3D)
     for i, layer_def in enumerate(layers):
+        bottom = layer_def.get("bottom", -(i + 1) * 5)
+        layer_label = f"Soillayer_{i + 1}"
+
+        # Primary path: native `set` command (verified from Plaxis CLI recording)
+        try:
+            connection_manager.call_command(
+                f"set {layer_label}.Zones[0].Bottom {bottom}", server="input"
+            )
+            continue
+        except Exception as e_cmd:
+            logger.warning(f"Native set command for {layer_label}.Bottom failed ({e_cmd}), trying Python API.")
+
+        # Fallback: Python object API (skip Top — read-only)
         try:
             soil_layer = g.Soillayers[i]
-            # Access the borehole-specific zone for this layer
             for zone in soil_layer.Zones:
                 try:
                     zone_borehole = zone.Borehole.value if hasattr(zone.Borehole, "value") else zone.Borehole
                     if zone_borehole == bh or len(soil_layer.Zones) == 1:
-                        if hasattr(zone.Top, "set"):
-                            zone.Top.set(layer_def.get("top", 0))
-                        else:
-                            zone.Top = layer_def.get("top", 0)
+                        # Only set Bottom — Top is read-only
                         if hasattr(zone.Bottom, "set"):
-                            zone.Bottom.set(layer_def.get("bottom", -5))
+                            zone.Bottom.set(bottom)
                         else:
-                            zone.Bottom = layer_def.get("bottom", -5)
+                            zone.Bottom = bottom
                         break
                 except Exception:
                     pass
         except Exception as e:
-            logger.warning(f"Could not set layer {i} properties: {e}")
+            logger.warning(f"Could not set Bottom for layer {i}: {e}")
 
     return f"Created borehole at ({x}, {y}) with {len(layers)} layers."
 

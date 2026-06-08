@@ -61,25 +61,49 @@ def create_soil_material(name: str, model: str, params: dict):
         name (str): Material name.
         model (str): Soil model name (e.g., 'Mohr-Coulomb', 'Hardening Soil').
         params (dict): Dictionary of parameters (gammaUnsat, gammaSat, E, nu, cref, phi, etc.)
+
+    Notes (verified from Plaxis 3D CLI recording):
+      - `soilmat` (no args) creates a new SoilMat_N object.
+      - `setproperties SoilMat_N "Identification" "name" "SoilModel" 2 "param" value ...`
+        sets all properties in one call.
+      - SoilModel is passed as an integer (2 = Mohr-Coulomb), not the model name string.
     """
     s, g = connection_manager.get_input()
     _goto_soil_mode(g)
 
+    model_int = _resolve_soil_model(model)
+
     try:
         # Preferred wrapper path when available.
         mat = g.soilmat()
-        props = ["Identification", name, "SoilModel", _resolve_soil_model(model)]
+        props = ["Identification", name, "SoilModel", model_int]
         for key, val in params.items():
             props.append(key)
             props.append(val)
         mat.setproperties(*props)
     except Exception as e:
         logger.warning(f"Wrapper soilmat() unavailable, falling back to native command: {e}")
-        tokens = ["soilmat", _plaxis_literal("Identification"), _plaxis_literal(name), _plaxis_literal("SoilModel"), _plaxis_literal(model)]
-        for key, val in params.items():
-            tokens.append(_plaxis_literal(key))
-            tokens.append(_plaxis_literal(val))
-        connection_manager.call_command(" ".join(tokens), server="input")
+        # Native path (verified from Plaxis CLI recording):
+        #   soilmat               -> creates SoilMat_N
+        #   setproperties SoilMat_N "Identification" "name" "SoilModel" 2 ...
+        try:
+            connection_manager.call_command("soilmat", server="input")
+            # Get the name of the newly created material (last in the list)
+            # Plaxis names them SoilMat_1, SoilMat_2, etc.
+            mat_count = len(g.SoilMat) if hasattr(g, "SoilMat") else 1
+            mat_ref = f"SoilMat_{mat_count}"
+            prop_tokens = [f"setproperties {mat_ref}",
+                           f'"Identification" "{name}"',
+                           f'"SoilModel" {model_int}']
+            for key, val in params.items():
+                if isinstance(val, str):
+                    prop_tokens.append(f'"{key}" "{val}"')
+                else:
+                    prop_tokens.append(f'"{key}" {val}')
+            connection_manager.call_command(" ".join(prop_tokens), server="input")
+        except Exception as e2:
+            logger.error(f"Native soilmat command also failed: {e2}")
+            raise
 
     return f"Created soil material '{name}' with model '{model}'."
 

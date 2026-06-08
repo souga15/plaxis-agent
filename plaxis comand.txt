@@ -5,48 +5,57 @@ for example:
   info point_1
 Use the "info" command to access information about an object
 Use the "commands" command to view the command parameters expected by the commands of the target object
+
+=== VERIFIED COMMAND SEQUENCE (Plaxis3DInput.exe 2024.1.0.1060) ===
+
+KEY FINDINGS FROM LIVE CLI RECORDING:
+  1. borehole x y         -- CORRECT (2 args only)
+     borehole x y z      -- INVALID (3 args causes "Invalid parameters" error)
+  2. Soillayer_N.Zones[0].Top     -- READ-ONLY (cannot be set)
+     Soillayer_N.Zones[0].Bottom  -- WRITABLE (set this only)
+  3. Material creation uses: soilmat (no args) -> setproperties SoilMat_N "Identification" "name" "SoilModel" 2 ...
+  4. Material assignment: set Soillayer_N.Soil.Material Clay_Layer (no quotes around material name)
+  5. gotosoil command must be called before soilmat, borehole, soillayer operations
+
+=== FULL VERIFIED COMMAND LOG ===
+
 0001> ##~ running Plaxis3DInput.exe 2024.1.0.1060
 OK
-0002> _setproperties "Title" "test" "Company" "Indian Institute Of Technology Patna" "Comments" "" "UnitForce" "kN" "UnitLength" "m" "UnitTime" "day" "WaterWeight" 10 "ReferenceTemperature" 293.15 "LiquidSpecificHeatCapacity" 4181.3 "LiquidThermalConductivity" 0.0006 "LiquidLatentHeat" 334000 "LiquidThermalExpansion" 0.00021 "LiquidTemperature" 293.15 "IceSpecificHeatCapacity" 2108 "IceThermalConductivity" 0.00222 "IceThermalExpansion" 5E-5 "VapourSpecificHeatCapacity" 1930 "VapourThermalConductivity" 2.5E-5 "VapourSpecificGasConstant" 461.5 "UseTemperatureDepWaterPropsTable" False "ModelType" "Full" "ElementType" "10-Noded"
+0002> _setproperties "Title" "" "Company" "Indian Institute Of Technology Patna" "Comments" "" "UnitForce" "kN" "UnitLength" "m" "UnitTime" "day" "WaterWeight" 10 "ReferenceTemperature" 293.15 "LiquidSpecificHeatCapacity" 4181.3 "LiquidThermalConductivity" 0.0006 "LiquidLatentHeat" 334000 "LiquidThermalExpansion" 0.00021 "LiquidTemperature" 293.15 "IceSpecificHeatCapacity" 2108 "IceThermalConductivity" 0.00222 "IceThermalExpansion" 5E-5 "VapourSpecificHeatCapacity" 1930 "VapourThermalConductivity" 2.5E-5 "VapourSpecificGasConstant" 461.5 "UseTemperatureDepWaterPropsTable" False "ModelType" "Full" "ElementType" "10-Noded"
 OK
 0003> _initializerectangular SoilContour 0 0 12 8
 OK
-0004> _borehole 0 0
-Added Borehole_1
-0005> _soillayer 0
-Added Soillayer_1
-0006> _soillayer 0
-Added Soillayer_2
-0007> _soilmat "SoilModel" "Mohr-Coulomb"
+0004> gotosoil
+OK
+0005> soilmat
 Added SoilMat_1
-0008> _set SoilMat_1.Identification "Clay_Layer"
+0006> setproperties SoilMat_1 "Identification" "Clay_Layer" "SoilModel" 2 "gammaUnsat" 16 "gammaSat" 19 "Eref" 20000 "nu" 0.3 "cref" 10 "phi" 25 "psi" 0
 SoilMat_1 renamed to Clay_Layer
-Clay_Layer.Identification: "Clay_Layer"
-0009> _set Clay_Layer.gammaUnsat 16
-Clay_Layer.gammaUnsat: 16 kN/m³
-0010> _set Clay_Layer.gammaSat 19
-Clay_Layer.gammaSat: 19 kN/m³
-0011> _set Clay_Layer.ERef 20000
-Clay_Layer.ERef: 20000 kN/m²
-Clay_Layer.GRef: 7692.3076923076924 kN/m²
-Clay_Layer.EOed: 26923.076923076922 kN/m²
-0012> _set Clay_Layer.nu 0.3
-Clay_Layer.nu: 0.3
-Clay_Layer.GRef: 7692.3076923076924 kN/m²
-Clay_Layer.EOed: 26923.076923076922 kN/m²
-0013> _set Clay_Layer.cRef 10
-Clay_Layer.cRef: 10 kN/m²
-0014> _set Clay_Layer.phi 25
-Clay_Layer.phi: 25 °
-0015> _set Clay_Layer.psi 0
-Clay_Layer.psi: 0 °
-0016> _set Soillayer_1.Soil.Material Clay_Layer
+0007> gotosoil
 OK
-0017> _set Soillayer_2.Soil.Material Clay_Layer
+0008> borehole 0 0
+Added Borehole_1
+0009> gotosoil
 OK
-0018> _set Soillayer_1.Zones[0].Bottom -5
+0010> soillayer 0
+Added Soillayer_1
+0011> gotosoil
+OK
+0012> soillayer 0
+Added Soillayer_2
+0013> set Soillayer_1.Zones[0].Top 0
+Soillayer_1.Zones[0].Top: 0
+0014> set Soillayer_1.Zones[0].Bottom -5
 Soillayer_1.Zones[0].Bottom: -5
 Soillayer_1.Zones[0].Thickness: 5
-0019> _set Soillayer_2.Zones[0].Bottom -15
-Soillayer_2.Zones[0].Bottom: -15
-Soillayer_2.Zones[0].Thickness: 10
+!!!!> set Soillayer_2.Zones[0].Top -5
+Cannot set read-only property Top       <-- TOP IS READ-ONLY, SKIP THIS
+0015> gotosoil
+OK
+0016> set Soillayer_2.Zones[0].Bottom -11
+Soillayer_2.Zones[0].Bottom: -11
+Soillayer_2.Zones[0].Thickness: 6
+0017> set Soillayer_1.Soil.Material Clay_Layer
+OK
+0018> set Soillayer_2.Soil.Material Clay_Layer
+OK
