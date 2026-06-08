@@ -99,22 +99,26 @@ def _execute_tool_call(call: dict) -> dict:
     if tool_name == "create_soil_material":
         name = tool_args.get("name")
         model = tool_args.get("model")
-        params = tool_args.get("params", {})
+        # Accept both 'params' and 'parameters' as the dict key
+        params = tool_args.get("params") or tool_args.get("parameters") or {}
         if not isinstance(params, dict):
             params = {}
         # Extract any other top-level keys into params
         for k, v in list(tool_args.items()):
-            if k not in {"name", "model", "params"}:
+            if k not in {"name", "model", "params", "parameters"}:
                 params[k] = v
         tool_args = {"name": name, "model": model, "params": params}
 
     elif tool_name == "assign_material":
         object_name = tool_args.get("object_name")
         if object_name is None:
-            object_name = tool_args.get("layer_name") or tool_args.get("object") or tool_args.get("target")
+            object_name = (tool_args.get("layer_name") or tool_args.get("object")
+                           or tool_args.get("target") or tool_args.get("borehole"))
         material_name = tool_args.get("material_name")
         if material_name is None:
-            material_name = tool_args.get("materials") or tool_args.get("material") or tool_args.get("mat")
+            # LLM sometimes passes the material name as 'name' in assign_material
+            material_name = (tool_args.get("materials") or tool_args.get("material")
+                             or tool_args.get("mat") or tool_args.get("name"))
         tool_args = {"object_name": object_name, "material_name": material_name}
 
     elif tool_name == "create_borehole":
@@ -131,6 +135,18 @@ def _execute_tool_call(call: dict) -> dict:
             tool_args["x"] = 0.0
         if "y" not in tool_args:
             tool_args["y"] = 0.0
+        # Decode layers if LLM passed it as a JSON string
+        layers = tool_args.get("layers", [])
+        if isinstance(layers, str):
+            import json as _json
+            try:
+                layers = _json.loads(layers)
+            except Exception:
+                layers = []
+        # Normalize layers: [[top, bottom], ...] -> [{"top": t, "bottom": b}, ...]
+        if layers and isinstance(layers[0], (list, tuple)):
+            layers = [{"top": item[0], "bottom": item[1]} for item in layers if len(item) >= 2]
+        tool_args["layers"] = layers
 
     try:
         func = TOOL_REGISTRY[tool_name]

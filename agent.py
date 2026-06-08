@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 from pydantic import BaseModel, Field, ValidationError, model_validator
 from typing import List, Dict, Any
@@ -388,7 +389,16 @@ async def _call_llm(providers: list, system_prompt: str, prompt: str) -> dict:
         else:
             json_str = response.strip()
 
+        # Remove trailing commas before ] or } (common LLM mistake)
+        json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+
         parsed = json.loads(json_str)
+
+        # Remap 'parameters' -> 'args' inside each tool_call (common LLM alias)
+        for call in parsed.get("tool_calls", []):
+            if "parameters" in call and "args" not in call:
+                call["args"] = call.pop("parameters")
+
         # Validate structure with Pydantic
         validated = AgentResponse(**parsed)
         return validated.model_dump()

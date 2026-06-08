@@ -124,33 +124,84 @@ def create_anchor_material(name: str, params: dict):
 def assign_material(object_name: str, material_name: str):
     """
     Assign a material to an object.
-    
+
     Args:
-        object_name (str): Name of the target object (e.g., 'SoilLayer_1', 'Plate_1').
+        object_name (str): Name of the target object (e.g., 'Soillayer_1', 'Plate_1').
+                           Pass None or 'all' to assign to every soil layer.
         material_name (str): Name of the material to assign.
     """
     s, g = connection_manager.get_input()
     _goto_soil_mode(g)
-    mat = connection_manager.find_object_by_name(material_name)
 
+    # Resolve the material object — look up by name first, then fall back to
+    # using the name string directly in native commands.
+    mat = None
+    mat_obj_name = material_name  # default: use the string name in commands
+    try:
+        mat = connection_manager.find_object_by_name(material_name)
+        mat_obj_name = connection_manager._safe_attr(mat, "Name") or material_name
+    except ValueError:
+        logger.warning(f"Material '{material_name}' not found as object; will use name string in commands.")
+
+    # ── Helper: assign to a single Soillayer object ──────────────────────────
+    def _assign_to_layer(layer_obj, layer_label: str) -> str:
+        layer_name = connection_manager._safe_attr(layer_obj, "Name") or layer_label
+        # Primary path: native `set` command  (matches recorded CLI: _set Soillayer_1.Soil.Material SoilMat_1)
+        try:
+            connection_manager.call_command(
+                f"set {layer_name}.Soil.Material {mat_obj_name}", server="input"
+            )
+            return f"Assigned '{material_name}' to '{layer_name}'."
+        except Exception as e1:
+            logger.warning(f"Native set command failed ({e1}), trying direct attribute assignment.")
+        # Secondary path: direct Python attribute
+        try:
+            if mat is not None:
+                layer_obj.Soil.Material = mat
+            return f"Assigned '{material_name}' to '{layer_name}'."
+        except Exception as e2:
+            logger.warning(f"Direct attribute assignment failed ({e2}), trying g.setmaterial().")
+        # Tertiary path: wrapper API
+        if mat is not None:
+            g.setmaterial(layer_obj, mat)
+        return f"Assigned '{material_name}' to '{layer_name}'."
+
+    # ── If caller passes None / 'all' / 'borehole' / empty → assign to ALL layers ──
+    generic_names = {None, "", "all", "borehole", "soillayers", "every layer"}
+    if object_name is None or object_name.strip().lower() in generic_names:
+        messages = []
+        for i, layer in enumerate(g.Soillayers):
+            messages.append(_assign_to_layer(layer, f"Soillayer_{i + 1}"))
+        return " | ".join(messages) if messages else f"No soil layers found to assign '{material_name}'."
+
+    # ── Try numeric pattern: 'Soillayer_1', 'SoilLayer 2', 'layer1', etc. ──
+    match = re.search(r"(\d+)", object_name.strip())
+    if match:
+        layer_index = int(match.group(1)) - 1
+        if 0 <= layer_index < len(g.Soillayers):
+            return _assign_to_layer(g.Soillayers[layer_index], f"Soillayer_{layer_index + 1}")
+
+    # ── Try to find by name in the Plaxis object tree ────────────────────────
     try:
         obj = connection_manager.find_object_by_name(object_name)
-        g.setmaterial(obj, mat)
+        # Check if this is a soil layer — try .Soil.Material path first
+        try:
+            obj_name = connection_manager._safe_attr(obj, "Name") or object_name
+            connection_manager.call_command(
+                f"set {obj_name}.Soil.Material {mat_obj_name}", server="input"
+            )
+            return f"Assigned '{material_name}' to '{obj_name}'."
+        except Exception:
+            pass
+        if mat is not None:
+            g.setmaterial(obj, mat)
         return f"Assigned '{material_name}' to '{object_name}'."
     except ValueError:
         pass
 
-    match = re.fullmatch(r"(?:soil|soillayer)[_\s]*(\d+)", object_name.strip(), flags=re.IGNORECASE)
-    if match:
-        layer_index = int(match.group(1)) - 1
-        if 0 <= layer_index < len(g.Soillayers):
-            try:
-                g.Soillayers[layer_index].Soil.Material = mat
-            except Exception:
-                g.setmaterial(g.Soillayers[layer_index], mat)
-            layer_name = connection_manager._safe_attr(g.Soillayers[layer_index], "Name") or f"Soillayer_{layer_index + 1}"
-            return f"Assigned '{material_name}' to '{layer_name}'."
-
-    obj = connection_manager.find_object_by_name(object_name)
-    g.setmaterial(obj, mat)
-    return f"Assigned '{material_name}' to '{object_name}'."
+    # ── Last resort: assign to all soil layers ───────────────────────────────
+    logger.warning(f"Object '{object_name}' not found; assigning '{material_name}' to all soil layers.")
+    messages = []
+    for i, layer in enumerate(g.Soillayers):
+        messages.append(_assign_to_layer(layer, f"Soillayer_{i + 1}"))
+    return " | ".join(messages) if messages else f"Could not assign '{material_name}': no layers found."

@@ -149,8 +149,14 @@ class PlaxisConnection:
         return self.s_i, self.g_i
 
     def get_output(self):
-        if not self.is_connected or self.g_o is None:
-            raise ConnectionError("Not connected to Plaxis Output server.")
+        if not self.is_connected:
+            raise ConnectionError("Not connected to Plaxis. Run a project first.")
+        if self.g_o is None:
+            raise ConnectionError(
+                "Plaxis Output server (port 10001) is not available. "
+                "Make sure a calculation has been run and PLAXIS Output is open. "
+                "Results extraction will be skipped."
+            )
         return self.s_o, self.g_o
 
     def call_command(self, command: str, server: str = "input"):
@@ -188,6 +194,25 @@ class PlaxisConnection:
                 f"(PLAXIS is still on the Start Page), or when the connected PLAXIS scripting API does not "
                 f"support the command syntax this agent used. Verify a project is open first, then confirm "
                 f"your PLAXIS version and official 'plxscripting' package match."
+            )
+
+        if "max retries exceeded" in lowered or "connection refused" in lowered or "winerror 10061" in lowered:
+            return (
+                "Cannot reach the Plaxis Output server (port 10001). "
+                "This is expected if no calculation phase has been run yet, or if PLAXIS Output is not open. "
+                "Please run a calculation first (generate mesh → add phase → run_calculation), then retry results extraction."
+            )
+
+        if "output server" in lowered and "not available" in lowered:
+            return (
+                "Plaxis Output server is not available. Run a calculation first before extracting results."
+            )
+
+        if "invalid parameters" in lowered:
+            return (
+                f"PLAXIS returned 'Invalid parameters': {message}. "
+                "This usually means the command was issued with wrong argument order or type. "
+                "The agent will automatically retry using an alternative command path."
             )
 
         return None
