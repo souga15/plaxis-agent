@@ -83,10 +83,30 @@ TOOL_REGISTRY = {
     "close_project": project.close_project,
 }
 
+# Aliases for common LLM hallucinations / deprecated names -> canonical tool names
+TOOL_ALIASES = {
+    "create_material": "create_soil_material",
+    "add_borehole": "create_borehole",
+    "evaluate_design_safety": "get_safety_factor",
+    "check_safety": "get_safety_factor",
+    "get_factor_of_safety": "get_safety_factor",
+    "add_calculation_phase": "add_phase",
+    "create_phase": "add_phase",
+    "mesh": "generate_mesh",
+    "set_material": "assign_material",
+    "soilmat": "create_soil_material",
+}
+
 
 def _execute_tool_call(call: dict) -> dict:
     tool_name = call.get("name", "unknown")
     tool_args = dict(call.get("args", {}))
+
+    # Silently remap deprecated or hallucinated tool names
+    if tool_name in TOOL_ALIASES:
+        original_name = tool_name
+        tool_name = TOOL_ALIASES[tool_name]
+        logger.warning(f"Tool alias: '{original_name}' -> '{tool_name}'")
 
     if tool_name not in TOOL_REGISTRY:
         return {
@@ -114,6 +134,11 @@ def _execute_tool_call(call: dict) -> dict:
         if object_name is None:
             object_name = (tool_args.get("layer_name") or tool_args.get("object")
                            or tool_args.get("target") or tool_args.get("borehole"))
+        # Convert integer layer index -> "Soillayer_N" (LLM sometimes passes 1, 2, ...)
+        if isinstance(object_name, int):
+            object_name = f"Soillayer_{object_name}"
+        elif isinstance(object_name, str) and object_name.isdigit():
+            object_name = f"Soillayer_{object_name}"
         material_name = tool_args.get("material_name")
         if material_name is None:
             # LLM sometimes passes the material name as 'name' in assign_material

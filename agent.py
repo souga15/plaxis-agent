@@ -10,6 +10,50 @@ from providers.claude import ClaudeProvider
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_llm_json(raw: str) -> str:
+    """
+    Clean up common LLM JSON formatting mistakes before parsing:
+      1. Strip JS-style single-line comments  (// ...)
+      2. Strip JS-style block comments        (/* ... */)
+      3. Remove trailing commas before ] or }
+      4. Extract only the first complete top-level JSON object
+         (handles 'Extra data' when the LLM appended explanation text)
+    """
+    # 1 & 2: strip JS comments (inside strings is handled conservatively)
+    raw = re.sub(r"//[^\n\"]*", "", raw)          # single-line // comments
+    raw = re.sub(r"/\*.*?\*/", "", raw, flags=re.DOTALL)  # block /* */ comments
+
+    # 3: trailing commas before ] or }
+    raw = re.sub(r",\s*([}\]])", r"\1", raw)
+
+    # 4: extract first complete JSON object via brace-counting
+    depth = 0
+    in_string = False
+    escape_next = False
+    start = raw.find("{")
+    if start == -1:
+        return raw
+    for i, ch in enumerate(raw[start:], start=start):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return raw[start: i + 1]
+    return raw[start:]  # fallback: return from first { to end
+
+
 def _project_session_blocked(results: list[dict]) -> bool:
     """Detect failures that mean PLAXIS does not have a usable open project/session yet."""
     for result in results:
@@ -111,9 +155,16 @@ class CalculationAgent:
         self.providers = providers
         self.system_prompt = """
 You are the Solver and Calculation Agent.
-Your job is to read the active design state, create mesh parameters, define calculation phases, activate/deactivate structural elements, and run calculations.
+Your job is to generate the mesh, define calculation phases, and run calculations.
 
-=== AVAILABLE CALCULATION & MESH TOOLS ===
+CRITICAL RULES:
+- You MUST ONLY use the tools listed below. DO NOT call create_soil_material, create_borehole, assign_material, or any geometry tool — those have already been handled.
+- If geometry/materials are already set up (shown in the geometry log), do NOT repeat them.
+- If no calculation is needed (e.g. user only asked for geometry setup), return empty tool_calls.
+- DO NOT invent tool names. Only use the exact names listed below.
+- Your JSON output must be strictly valid: no comments, no trailing commas.
+
+=== AVAILABLE TOOLS (ONLY THESE) ===
 - generate_mesh(fineness: float)  — 0.0=coarse, 0.5=medium, 1.0=fine
 - refine_mesh_around(object_name: str, factor: float)
 - get_mesh_quality()
@@ -128,15 +179,14 @@ Your job is to read the active design state, create mesh parameters, define calc
 - get_log()
 
 === RESPONSE FORMAT ===
-You MUST respond with a valid JSON block containing "tool_calls" and "message".
-Example:
+Respond ONLY with a single valid JSON object — no extra text before or after.
 {
   "tool_calls": [
     {"name": "generate_mesh", "args": {"fineness": 0.5}}
   ],
   "message": "Generated mesh"
 }
-Remember to generate the mesh before running the calculation!
+If geometry setup was the only goal and no calculation is needed, return: {"tool_calls": [], "message": "No calculation needed for this geometry-only task."}
 """
 
     async def execute(self, user_prompt: str, geometry_log: str):
@@ -150,9 +200,15 @@ class ValidationAgent:
         self.providers = providers
         self.system_prompt = """
 You are the Extraction and Validation Agent.
-Your job is to query phase results (stresses, displacements, structural envelope forces, and factor of safety Msf) and verify if the design is completely safe.
+Your job is to query phase results and verify if the design is safe.
 
-=== AVAILABLE RESULTS TOOLS ===
+CRITICAL RULES:
+- You MUST ONLY use the tools listed below. DO NOT invent tool names like 'evaluate_design_safety' or any tool not in the list.
+- If no calculation phase has been run yet, return empty tool_calls — do not attempt to read results.
+- If the workflow log shows the Output server is unavailable, return empty tool_calls.
+- Your JSON output must be strictly valid: no comments, no trailing commas, no extra text after the closing brace.
+
+=== AVAILABLE TOOLS (ONLY THESE) ===
 - get_displacements(phase_name: str, point: list)
 - get_stresses(phase_name: str, point: list)
 - get_structural_forces(phase_name: str, structure_name: str)
@@ -160,15 +216,14 @@ Your job is to query phase results (stresses, displacements, structural envelope
 - export_results_to_excel(phase_name: str, output_path: str)
 
 === RESPONSE FORMAT ===
-You MUST respond with a valid JSON block containing "tool_calls" and "message".
-Example:
+Respond ONLY with a single valid JSON object — no extra text before or after.
 {
   "tool_calls": [
     {"name": "get_safety_factor", "args": {"phase_name": "Phase_1"}}
   ],
   "message": "Checked safety"
 }
-Make sure to call `get_safety_factor` for any safety phase (e.g. Phase_2 or Phase_3) to evaluate Sum-Msf!
+If no safety/calculation phase exists yet, return: {"tool_calls": [], "message": "No calculation phase run yet — skipping results extraction."}
 """
 
     async def execute(self, user_prompt: str, workflow_log: str):
@@ -389,8 +444,7 @@ async def _call_llm(providers: list, system_prompt: str, prompt: str) -> dict:
         else:
             json_str = response.strip()
 
-        # Remove trailing commas before ] or } (common LLM mistake)
-        json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+        json_str = _sanitize_llm_json(json_str)
 
         parsed = json.loads(json_str)
 
