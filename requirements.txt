@@ -1,0 +1,12 @@
+plxscripting
+fastapi
+uvicorn
+websockets
+httpx
+google-genai
+python-dotenv
+openpyxl
+pydantic
+pyinstaller
+pytest
+pytest-asyncio

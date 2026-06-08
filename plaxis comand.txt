@@ -1,0 +1,52 @@
+Commands can be called as follows:
+  command [target] [param1 [param2 [...]]]
+for example:
+  point 1 2 3
+  info point_1
+Use the "info" command to access information about an object
+Use the "commands" command to view the command parameters expected by the commands of the target object
+0001> ##~ running Plaxis3DInput.exe 2024.1.0.1060
+OK
+0002> _setproperties "Title" "test" "Company" "Indian Institute Of Technology Patna" "Comments" "" "UnitForce" "kN" "UnitLength" "m" "UnitTime" "day" "WaterWeight" 10 "ReferenceTemperature" 293.15 "LiquidSpecificHeatCapacity" 4181.3 "LiquidThermalConductivity" 0.0006 "LiquidLatentHeat" 334000 "LiquidThermalExpansion" 0.00021 "LiquidTemperature" 293.15 "IceSpecificHeatCapacity" 2108 "IceThermalConductivity" 0.00222 "IceThermalExpansion" 5E-5 "VapourSpecificHeatCapacity" 1930 "VapourThermalConductivity" 2.5E-5 "VapourSpecificGasConstant" 461.5 "UseTemperatureDepWaterPropsTable" False "ModelType" "Full" "ElementType" "10-Noded"
+OK
+0003> _initializerectangular SoilContour 0 0 12 8
+OK
+0004> _borehole 0 0
+Added Borehole_1
+0005> _soillayer 0
+Added Soillayer_1
+0006> _soillayer 0
+Added Soillayer_2
+0007> _soilmat "SoilModel" "Mohr-Coulomb"
+Added SoilMat_1
+0008> _set SoilMat_1.Identification "Clay_Layer"
+SoilMat_1 renamed to Clay_Layer
+Clay_Layer.Identification: "Clay_Layer"
+0009> _set Clay_Layer.gammaUnsat 16
+Clay_Layer.gammaUnsat: 16 kN/m³
+0010> _set Clay_Layer.gammaSat 19
+Clay_Layer.gammaSat: 19 kN/m³
+0011> _set Clay_Layer.ERef 20000
+Clay_Layer.ERef: 20000 kN/m²
+Clay_Layer.GRef: 7692.3076923076924 kN/m²
+Clay_Layer.EOed: 26923.076923076922 kN/m²
+0012> _set Clay_Layer.nu 0.3
+Clay_Layer.nu: 0.3
+Clay_Layer.GRef: 7692.3076923076924 kN/m²
+Clay_Layer.EOed: 26923.076923076922 kN/m²
+0013> _set Clay_Layer.cRef 10
+Clay_Layer.cRef: 10 kN/m²
+0014> _set Clay_Layer.phi 25
+Clay_Layer.phi: 25 °
+0015> _set Clay_Layer.psi 0
+Clay_Layer.psi: 0 °
+0016> _set Soillayer_1.Soil.Material Clay_Layer
+OK
+0017> _set Soillayer_2.Soil.Material Clay_Layer
+OK
+0018> _set Soillayer_1.Zones[0].Bottom -5
+Soillayer_1.Zones[0].Bottom: -5
+Soillayer_1.Zones[0].Thickness: 5
+0019> _set Soillayer_2.Zones[0].Bottom -15
+Soillayer_2.Zones[0].Bottom: -15
+Soillayer_2.Zones[0].Thickness: 10
